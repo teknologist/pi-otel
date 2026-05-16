@@ -2,7 +2,12 @@
 
 [![Docs](https://img.shields.io/badge/docs-pi--otel-blue)](https://nikiforovall.blog/pi-otel/)
 
-OpenTelemetry tracing for [pi](https://github.com/earendil-works/pi-coding-agent). One trace tree per user prompt, exported to a local [.NET Aspire dashboard](https://aspire.dev/dashboard/standalone/) by default. Full OTel GenAI semantic-convention coverage (`gen_ai.*`) for token usage, cost, model, finish reasons, and tool calls. Pi has rich lifecycle events but no built-in timeline view — pi-otel is the "press one button, see your agent" surface.
+OpenTelemetry tracing for [pi](https://github.com/earendil-works/pi-coding-agent) agent.
+
+
+One trace tree per user prompt, exported to a local [.NET Aspire dashboard](https://aspire.dev/dashboard/standalone/) by default.
+
+Full OTel GenAI semantic-convention coverage (`gen_ai.*`) for token usage, cost, model, finish reasons, and tool calls.
 
 <table>
   <tr>
