@@ -39,7 +39,7 @@ pi install npm:pi-otel
 
 Backend auto-detect: Aspire CLI first, then Docker / Podman. Install one:
 
-- Aspire CLI: `irm https://aspire.dev/install.ps1 | iex` (Windows) or `curl -sSL https://aspire.dev/install.sh | bash` (mac/linux)
+- Aspire CLI
 - Docker or Podman
 
 ## Configuration
