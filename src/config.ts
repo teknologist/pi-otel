@@ -176,10 +176,7 @@ export function resolveConfig(cwd: string): OtelConfig {
         merged?.signals?.metrics === true,
       logs: envTrue(process.env.PI_OTEL_LOGS) || merged?.signals?.logs === true,
     },
-    resourceAttributes: parseKvList(
-      process.env.OTEL_RESOURCE_ATTRIBUTES,
-      true,
-    ),
+    resourceAttributes: parseKvList(process.env.OTEL_RESOURCE_ATTRIBUTES, true),
     logLevel:
       normalizeLogLevel(process.env.OTEL_LOG_LEVEL) ??
       normalizeLogLevel(merged?.logLevel) ??

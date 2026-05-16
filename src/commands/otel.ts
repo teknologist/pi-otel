@@ -283,7 +283,10 @@ async function startCmd(
     return;
   }
 
-  writeConn({ endpoint: `http://localhost:${OTLP_GRPC_PORT}`, protocol: "grpc" });
+  writeConn({
+    endpoint: `http://localhost:${OTLP_GRPC_PORT}`,
+    protocol: "grpc",
+  });
   notify(
     [
       `Aspire dashboard started (driver=${driver}, pid=${pid}).`,
@@ -311,7 +314,9 @@ async function stopCmd(notify: Notify): Promise<void> {
       const r = spawnSync(meta.driver, ["stop", DOCKER_CONTAINER], {
         stdio: "ignore",
       });
-      attempts.push(`${meta.driver} stop ${DOCKER_CONTAINER} → ${r.status === 0 ? "ok" : "fail"}`);
+      attempts.push(
+        `${meta.driver} stop ${DOCKER_CONTAINER} → ${r.status === 0 ? "ok" : "fail"}`,
+      );
       if (r.status !== 0 && pidAlive(meta.pid)) {
         killPid(meta.pid);
         attempts.push(`kill pid ${meta.pid}`);
@@ -344,7 +349,8 @@ async function stopCmd(notify: Notify): Promise<void> {
     notify(
       [
         `Port ${OTLP_GRPC_PORT} is still open after stop attempts.`,
-        "Tried: " + (attempts.join("; ") || "(nothing — no meta and no known container)"),
+        "Tried: " +
+          (attempts.join("; ") || "(nothing — no meta and no known container)"),
         "Find the process manually:",
         isWindows()
           ? `  netstat -ano | findstr :${OTLP_GRPC_PORT}`
@@ -385,7 +391,10 @@ function parseEndpoint(
   return { host, port };
 }
 
-async function statusCmd(notify: Notify, getCwd: () => string | undefined): Promise<void> {
+async function statusCmd(
+  notify: Notify,
+  getCwd: () => string | undefined,
+): Promise<void> {
   const cwd = getCwd();
   const baseCfg = cwd ? resolveConfig(cwd) : null;
   const conn = readConn();
@@ -399,7 +408,9 @@ async function statusCmd(notify: Notify, getCwd: () => string | undefined): Prom
   const reachable = parsed ? await probePort(parsed.port) : false;
 
   const lines: string[] = [];
-  lines.push(`Connected: ${activeEndpoint} (${activeProtocol}) — ${reachable ? "reachable" : "UNREACHABLE"}`);
+  lines.push(
+    `Connected: ${activeEndpoint} (${activeProtocol}) — ${reachable ? "reachable" : "UNREACHABLE"}`,
+  );
 
   if (baseCfg && baseCfg.endpoint !== activeEndpoint) {
     lines.push(`  (config default: ${baseCfg.endpoint})`);
@@ -441,9 +452,13 @@ async function connectCmd(
   notify(`pi-otel connected → ${endpoint} (protocol=${protocol}).`);
 }
 
-export function registerOtelCommand(pi: ExtensionAPI, getCwd: () => string | undefined): void {
+export function registerOtelCommand(
+  pi: ExtensionAPI,
+  getCwd: () => string | undefined,
+): void {
   pi.registerCommand("otel", {
-    description: "Aspire OTel dashboard launcher: start | stop | status | connect",
+    description:
+      "Aspire OTel dashboard launcher: start | stop | status | connect",
     getArgumentCompletions: (prefix) => {
       return SUBCOMMANDS.filter((s) => s.startsWith(prefix)).map((s) => ({
         value: s,

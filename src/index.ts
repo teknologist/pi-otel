@@ -47,10 +47,10 @@ import {
   GEN_AI_SYSTEM_PI,
 } from "./attrs.js";
 import { registerOtelCommand } from "./commands/otel.js";
+import type { OtelConfig } from "./config.js";
 import { resolveConfig } from "./config.js";
 import { emitLifecycleLog } from "./otel/logs.js";
 import { initSdk, probeEndpoint, shutdownSdk } from "./otel/sdk.js";
-import type { OtelConfig } from "./config.js";
 import { SpanTracker } from "./spans.js";
 
 const TRACER_NAME = "pi-otel";
@@ -168,7 +168,13 @@ export default function (pi: ExtensionAPI): void {
     eventName: string,
     body: string,
     attrs: Record<string, string | number | boolean> = {},
-  ) => pi.events.emit("pi-otel:log", { eventName, severity: "error", body, attributes: attrs });
+  ) =>
+    pi.events.emit("pi-otel:log", {
+      eventName,
+      severity: "error",
+      body,
+      attributes: attrs,
+    });
 
   pi.on("before_agent_start", async (event, _ctx) => {
     tracker?.startInteraction(event?.prompt);
@@ -238,10 +244,16 @@ export default function (pi: ExtensionAPI): void {
     tracker?.noteAssistantMessage(msg);
     tracker?.endLlmRequest();
     if (finish === "error") {
-      logError("pi.llm_request.error", msg.errorMessage ?? `LLM request failed (${finish})`, {
-        ...(typeof msg.model === "string" ? { [ATTR_RESPONSE_MODEL]: msg.model } : {}),
-        [ATTR_FINISH_REASONS]: finish,
-      });
+      logError(
+        "pi.llm_request.error",
+        msg.errorMessage ?? `LLM request failed (${finish})`,
+        {
+          ...(typeof msg.model === "string"
+            ? { [ATTR_RESPONSE_MODEL]: msg.model }
+            : {}),
+          [ATTR_FINISH_REASONS]: finish,
+        },
+      );
     }
   });
 
