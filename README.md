@@ -1,5 +1,7 @@
 # pi-otel
 
+[![npm version](https://img.shields.io/npm/v/pi-otel.svg)](https://www.npmjs.com/package/pi-otel)
+[![npm downloads](https://img.shields.io/npm/dt/pi-otel.svg)](https://www.npmjs.com/package/pi-otel)
 [![Docs](https://img.shields.io/badge/docs-pi--otel-blue)](https://nikiforovall.blog/pi-otel/)
 
 OpenTelemetry tracing for [pi](https://github.com/earendil-works/pi-coding-agent) agent.
