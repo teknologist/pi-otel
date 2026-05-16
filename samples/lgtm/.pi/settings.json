@@ -1,0 +1,13 @@
+{
+  "otel": {
+    "enabled": true,
+    "endpoint": "http://localhost:4317",
+    "protocol": "grpc",
+    "captureContent": "full",
+    "signals": {
+      "traces": true,
+      "metrics": true,
+      "logs": true
+    }
+  }
+}

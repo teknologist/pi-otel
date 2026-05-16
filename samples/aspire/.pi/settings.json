@@ -1,0 +1,11 @@
+{
+  "otel": {
+    "enabled": true,
+    "captureContent": "full",
+    "signals": {
+      "traces": true,
+      "metrics": true,
+      "logs": true
+    }
+  }
+}
