@@ -5,8 +5,8 @@
  */
 
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { homedir } from "node:os";
+import { join } from "node:path";
 import { DiagLogLevel } from "@opentelemetry/api";
 import type { ContentCapture } from "./attrs.js";
 
@@ -52,21 +52,9 @@ function tryReadJson(path: string): SettingsShape | null {
   }
 }
 
-function parseHeaders(s: string | undefined): Record<string, string> {
-  if (!s) return {};
-  const out: Record<string, string> = {};
-  for (const pair of s.split(",")) {
-    const eq = pair.indexOf("=");
-    if (eq <= 0) continue;
-    const k = pair.slice(0, eq).trim();
-    const v = pair.slice(eq + 1).trim();
-    if (k) out[k] = v;
-  }
-  return out;
-}
-
-function parseResourceAttributes(
+function parseKvList(
   s: string | undefined,
+  decode = false,
 ): Record<string, string> {
   if (!s) return {};
   const out: Record<string, string> = {};
@@ -74,13 +62,15 @@ function parseResourceAttributes(
     const eq = pair.indexOf("=");
     if (eq <= 0) continue;
     const k = pair.slice(0, eq).trim();
-    const rawV = pair.slice(eq + 1).trim();
     if (!k) continue;
-    let v: string;
-    try {
-      v = decodeURIComponent(rawV);
-    } catch {
-      v = rawV;
+    const rawV = pair.slice(eq + 1).trim();
+    let v = rawV;
+    if (decode) {
+      try {
+        v = decodeURIComponent(rawV);
+      } catch {
+        // Fall back to raw value on malformed %-escapes (per W3C resource attrs spec).
+      }
     }
     out[k] = v;
   }
@@ -93,7 +83,8 @@ function normalizeProtocol(
   if (!p) return "grpc";
   const v = p.trim().toLowerCase();
   if (v === "grpc") return "grpc";
-  if (v === "http/protobuf" || v === "http-protobuf" || v === "http") return "http/protobuf";
+  if (v === "http/protobuf" || v === "http-protobuf" || v === "http")
+    return "http/protobuf";
   if (v === "http/json") return "http/json";
   return "grpc";
 }
@@ -155,7 +146,7 @@ export function resolveConfig(cwd: string): OtelConfig {
 
   const headers = {
     ...(merged?.headers ?? {}),
-    ...parseHeaders(process.env.OTEL_EXPORTER_OTLP_HEADERS),
+    ...parseKvList(process.env.OTEL_EXPORTER_OTLP_HEADERS),
   };
 
   const serviceName =
@@ -168,8 +159,7 @@ export function resolveConfig(cwd: string): OtelConfig {
   const sampleRatio =
     typeof merged?.sampleRatio === "number" ? merged.sampleRatio : 1.0;
 
-  const envTrue = (v: string | undefined): boolean =>
-    v === "1" || v === "true";
+  const envTrue = (v: string | undefined): boolean => v === "1" || v === "true";
 
   return {
     enabled,
@@ -182,12 +172,13 @@ export function resolveConfig(cwd: string): OtelConfig {
     signals: {
       traces: merged?.signals?.traces !== false,
       metrics:
-        envTrue(process.env.PI_OTEL_METRICS) || merged?.signals?.metrics === true,
-      logs:
-        envTrue(process.env.PI_OTEL_LOGS) || merged?.signals?.logs === true,
+        envTrue(process.env.PI_OTEL_METRICS) ||
+        merged?.signals?.metrics === true,
+      logs: envTrue(process.env.PI_OTEL_LOGS) || merged?.signals?.logs === true,
     },
-    resourceAttributes: parseResourceAttributes(
+    resourceAttributes: parseKvList(
       process.env.OTEL_RESOURCE_ATTRIBUTES,
+      true,
     ),
     logLevel:
       normalizeLogLevel(process.env.OTEL_LOG_LEVEL) ??

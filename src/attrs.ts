@@ -1,9 +1,8 @@
 /**
  * gen_ai.* attribute and metric constants.
  *
- * Names lifted verbatim from `@grafana/sigil-pi` v0.8.0
- * (`_audit/package/dist/index.js:24329-24363`) — Apache 2.0, attributed in NOTICE.
- * These are the canonical OTel GenAI semantic-convention attribute names.
+ * Names follow the OTel GenAI semantic conventions:
+ * https://opentelemetry.io/docs/specs/semconv/gen-ai/
  */
 
 // Conversation / agent identity
@@ -37,7 +36,8 @@ export const ATTR_OUTPUT_TOKENS = "gen_ai.usage.output_tokens";
 export const ATTR_TOKEN_TYPE = "gen_ai.token.type";
 export const ATTR_CACHE_READ_TOKENS = "gen_ai.usage.cache_read_input_tokens";
 export const ATTR_CACHE_WRITE_TOKENS = "gen_ai.usage.cache_write_input_tokens";
-export const ATTR_CACHE_CREATION_TOKENS = "gen_ai.usage.cache_creation_input_tokens";
+export const ATTR_CACHE_CREATION_TOKENS =
+  "gen_ai.usage.cache_creation_input_tokens";
 export const ATTR_REASONING_TOKENS = "gen_ai.usage.reasoning_tokens";
 
 // Tool
@@ -66,6 +66,16 @@ export const ATTR_PI_USER_PROMPT_LENGTH = "pi.user_prompt_length";
 
 // HTTP
 export const ATTR_HTTP_STATUS_CODE = "http.response.status_code";
+
+// GenAI message-list attributes (Aspire 9.x AI panel reads these on the LLM span)
+export const ATTR_GEN_AI_INPUT_MESSAGES = "gen_ai.input.messages";
+export const ATTR_GEN_AI_OUTPUT_MESSAGES = "gen_ai.output.messages";
+
+// GenAI span events
+export const EVENT_GEN_AI_USER_MESSAGE = "gen_ai.user.message";
+export const EVENT_GEN_AI_TOOL_MESSAGE = "gen_ai.tool.message";
+export const EVENT_GEN_AI_ASSISTANT_MESSAGE = "gen_ai.assistant.message";
+export const EVENT_GEN_AI_CHOICE = "gen_ai.choice";
 
 // Span names
 export const SPAN_INTERACTION = "pi.interaction";
@@ -96,8 +106,9 @@ export function clampAttr(value: unknown): string {
   if (Buffer.byteLength(s, "utf8") <= MAX_ATTR_BYTES) return s;
   // Byte-safe truncation: shrink until <= limit
   let end = MAX_ATTR_BYTES;
-  while (Buffer.byteLength(s.slice(0, end), "utf8") > MAX_ATTR_BYTES - 32) end -= 64;
-  return s.slice(0, end) + "…[truncated]";
+  while (Buffer.byteLength(s.slice(0, end), "utf8") > MAX_ATTR_BYTES - 32)
+    end -= 64;
+  return `${s.slice(0, end)}…[truncated]`;
 }
 
 /**
@@ -124,7 +135,10 @@ export function applyUsageAttrs(
     ATTR_CACHE_CREATION_TOKENS,
     u.cacheCreation ?? u.cache_creation ?? u.cacheCreationTokens,
   );
-  set(ATTR_REASONING_TOKENS, u.reasoning ?? u.reasoningTokens ?? u.reasoning_tokens);
+  set(
+    ATTR_REASONING_TOKENS,
+    u.reasoning ?? u.reasoningTokens ?? u.reasoning_tokens,
+  );
   const cost = u.cost;
   if (cost && typeof cost === "object") {
     const total = (cost as any).total;

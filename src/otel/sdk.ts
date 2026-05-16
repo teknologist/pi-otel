@@ -4,30 +4,35 @@
  */
 
 import { randomBytes } from "node:crypto";
-import { diag, trace } from "@opentelemetry/api";
-import { NodeSDK } from "@opentelemetry/sdk-node";
-import { buildBridgeDiagLogger } from "./logs.js";
-import { BatchSpanProcessor } from "@opentelemetry/sdk-trace-base";
-import { PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
-import { BatchLogRecordProcessor } from "@opentelemetry/sdk-logs";
-import { Resource } from "@opentelemetry/resources";
-import {
-  ATTR_SERVICE_NAME,
-  ATTR_SERVICE_INSTANCE_ID,
-} from "@opentelemetry/semantic-conventions/incubating";
-import { OTLPTraceExporter as GrpcExporter } from "@opentelemetry/exporter-trace-otlp-grpc";
-import { OTLPTraceExporter as ProtoExporter } from "@opentelemetry/exporter-trace-otlp-proto";
-import { OTLPTraceExporter as HttpExporter } from "@opentelemetry/exporter-trace-otlp-http";
-import { OTLPMetricExporter as MetricGrpcExporter } from "@opentelemetry/exporter-metrics-otlp-grpc";
-import { OTLPMetricExporter as MetricProtoExporter } from "@opentelemetry/exporter-metrics-otlp-proto";
-import { OTLPMetricExporter as MetricHttpExporter } from "@opentelemetry/exporter-metrics-otlp-http";
+import { createConnection } from "node:net";
+import { diag, metrics, trace } from "@opentelemetry/api";
+import { logs } from "@opentelemetry/api-logs";
 import { OTLPLogExporter as LogGrpcExporter } from "@opentelemetry/exporter-logs-otlp-grpc";
-import { OTLPLogExporter as LogProtoExporter } from "@opentelemetry/exporter-logs-otlp-proto";
 import { OTLPLogExporter as LogHttpExporter } from "@opentelemetry/exporter-logs-otlp-http";
-import type { OtelConfig } from "../config.js";
+import { OTLPLogExporter as LogProtoExporter } from "@opentelemetry/exporter-logs-otlp-proto";
+import { OTLPMetricExporter as MetricGrpcExporter } from "@opentelemetry/exporter-metrics-otlp-grpc";
+import { OTLPMetricExporter as MetricHttpExporter } from "@opentelemetry/exporter-metrics-otlp-http";
+import { OTLPMetricExporter as MetricProtoExporter } from "@opentelemetry/exporter-metrics-otlp-proto";
+import { OTLPTraceExporter as GrpcExporter } from "@opentelemetry/exporter-trace-otlp-grpc";
+import { OTLPTraceExporter as HttpExporter } from "@opentelemetry/exporter-trace-otlp-http";
+import { OTLPTraceExporter as ProtoExporter } from "@opentelemetry/exporter-trace-otlp-proto";
+import { Resource } from "@opentelemetry/resources";
+import { BatchLogRecordProcessor } from "@opentelemetry/sdk-logs";
+import { PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
+import { NodeSDK } from "@opentelemetry/sdk-node";
+import {
+  BatchSpanProcessor,
+  ParentBasedSampler,
+  TraceIdRatioBasedSampler,
+} from "@opentelemetry/sdk-trace-base";
+import {
+  ATTR_SERVICE_INSTANCE_ID,
+  ATTR_SERVICE_NAME,
+} from "@opentelemetry/semantic-conventions/incubating";
 import { ATTR_PI_CWD } from "../attrs.js";
+import type { OtelConfig } from "../config.js";
+import { buildBridgeDiagLogger, resetLogHandles } from "./logs.js";
 import { resetMetricHandles } from "./metrics.js";
-import { resetLogHandles } from "./logs.js";
 
 export type NotifySeverity = "info" | "warning" | "error";
 export type Notify = (msg: string, severity?: NotifySeverity) => void;
@@ -35,11 +40,55 @@ export type Notify = (msg: string, severity?: NotifySeverity) => void;
 let sdk: NodeSDK | null = null;
 let initOnce = false;
 
-type ExporterCtor<T> = new (opts: { url: string; headers: Record<string, string> }) => T;
+export function probeTcp(
+  host: string,
+  port: number,
+  timeoutMs = 300,
+): Promise<boolean> {
+  return new Promise((resolve) => {
+    const sock = createConnection({ port, host });
+    const done = (ok: boolean) => {
+      sock.destroy();
+      resolve(ok);
+    };
+    sock.setTimeout(timeoutMs);
+    sock.once("connect", () => done(true));
+    sock.once("timeout", () => done(false));
+    sock.once("error", () => done(false));
+  });
+}
+
+// Used at session_start to avoid wiring exporters at a dead endpoint —
+// otherwise the metric reader / log processor begin retrying immediately and
+// those failures get buffered and flushed once the endpoint comes online.
+export function probeEndpoint(
+  endpoint: string,
+  timeoutMs = 300,
+): Promise<boolean> {
+  let u: URL;
+  try {
+    u = new URL(endpoint);
+  } catch {
+    return Promise.resolve(false);
+  }
+  // OTLP endpoints always carry an explicit port; refuse to fall back to
+  // 80/443, which could silently green-light an unrelated service.
+  if (!u.port) return Promise.resolve(false);
+  return probeTcp(u.hostname || "127.0.0.1", Number(u.port), timeoutMs);
+}
+
+type ExporterCtor<T> = new (opts: {
+  url: string;
+  headers: Record<string, string>;
+}) => T;
 
 function pickByProtocol<T>(
   cfg: OtelConfig,
-  ctors: { grpc: ExporterCtor<T>; proto: ExporterCtor<T>; http: ExporterCtor<T> },
+  ctors: {
+    grpc: ExporterCtor<T>;
+    proto: ExporterCtor<T>;
+    http: ExporterCtor<T>;
+  },
 ): T {
   const opts = { url: cfg.endpoint, headers: cfg.headers };
   if (cfg.protocol === "http/protobuf") return new ctors.proto(opts);
@@ -47,7 +96,11 @@ function pickByProtocol<T>(
   return new ctors.grpc(opts);
 }
 
-export function initSdk(cfg: OtelConfig, notify?: Notify): NodeSDK | null {
+export function initSdk(
+  cfg: OtelConfig,
+  notify?: Notify,
+  opts: { silentSuccess?: boolean } = {},
+): NodeSDK | null {
   if (!cfg.enabled || !cfg.signals.traces) return null;
   if (initOnce) return sdk;
   initOnce = true;
@@ -67,7 +120,18 @@ export function initSdk(cfg: OtelConfig, notify?: Notify): NodeSDK | null {
   });
   const spanProcessor = new BatchSpanProcessor(traceExporter);
 
-  const sdkOpts: Record<string, unknown> = { resource, spanProcessor };
+  const sampler =
+    cfg.sampleRatio < 1.0
+      ? new ParentBasedSampler({
+          root: new TraceIdRatioBasedSampler(cfg.sampleRatio),
+        })
+      : undefined;
+
+  const sdkOpts: Record<string, unknown> = {
+    resource,
+    spanProcessor,
+    ...(sampler ? { sampler } : {}),
+  };
   if (cfg.signals.metrics) {
     const metricExporter = pickByProtocol(cfg, {
       grpc: MetricGrpcExporter,
@@ -108,7 +172,12 @@ export function initSdk(cfg: OtelConfig, notify?: Notify): NodeSDK | null {
     });
   }
 
-  notify?.(`pi-otel: OTLP wired to ${cfg.endpoint} (${cfg.protocol})`, "info");
+  if (!opts.silentSuccess) {
+    notify?.(
+      `pi-otel: OTLP wired to ${cfg.endpoint} (${cfg.protocol})`,
+      "info",
+    );
+  }
   return sdk;
 }
 
@@ -119,15 +188,17 @@ export async function shutdownSdk(): Promise<void> {
   } catch {
     // swallow — silent-drop policy (SPEC §7)
   } finally {
-    // NodeSDK.start() registers a global TracerProvider; the global API
-    // refuses to replace an already-registered provider, so a subsequent
-    // initSdk() would silently keep the shut-down one and tracers would
-    // emit into the void. Unregister explicitly before re-init.
+    // Reset state first so a subsequent initSdk() can proceed even if the
+    // cleanup calls below throw. The global Tracer/Logger/Meter APIs refuse
+    // to replace an already-registered provider — without disabling all
+    // three, a re-init silently keeps the dead providers.
+    sdk = null;
+    initOnce = false;
     trace.disable();
+    metrics.disable();
+    logs.disable();
     diag.disable();
     resetMetricHandles();
     resetLogHandles();
-    sdk = null;
-    initOnce = false;
   }
 }

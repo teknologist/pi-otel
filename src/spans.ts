@@ -10,55 +10,62 @@
  */
 
 import {
-  context as otelContext,
-  trace,
-  SpanStatusCode,
-  type Span,
   type Context,
+  context as otelContext,
+  type Span,
+  SpanStatusCode,
   type Tracer,
+  trace,
 } from "@opentelemetry/api";
+import { type LogAttributes, SeverityNumber } from "@opentelemetry/api-logs";
 import {
-  ATTR_PI_SESSION_ID,
-  ATTR_SESSION_ID,
-  ATTR_PI_CWD,
   ATTR_CONVERSATION_ID,
-  ATTR_SYSTEM,
+  ATTR_ERROR_TYPE,
+  ATTR_GEN_AI_INPUT_MESSAGES,
+  ATTR_GEN_AI_OUTPUT_MESSAGES,
+  ATTR_INPUT_TOKENS,
   ATTR_OPERATION_NAME,
-  ATTR_PI_TOOL_NAME,
+  ATTR_OUTPUT_TOKENS,
+  ATTR_PI_CWD,
+  ATTR_PI_SESSION_ID,
   ATTR_PI_TOOL_CALL_ID,
-  ATTR_TOOL_NAME,
-  ATTR_TOOL_CALL_ID,
-  ATTR_PI_TOOL_IS_ERROR,
+  ATTR_PI_TOOL_COUNT,
   ATTR_PI_TOOL_INPUT,
+  ATTR_PI_TOOL_IS_ERROR,
+  ATTR_PI_TOOL_NAME,
   ATTR_PI_TOOL_OUTPUT,
-  ATTR_TOOL_CALL_ARGUMENTS,
-  ATTR_TOOL_CALL_RESULT,
-  ATTR_PI_USER_PROMPT,
-  ATTR_PI_USER_PROMPT_LENGTH,
   ATTR_PI_TURN_COUNT,
   ATTR_PI_TURN_INDEX,
-  ATTR_PI_TOOL_COUNT,
-  ATTR_ERROR_TYPE,
+  ATTR_PI_USER_PROMPT,
+  ATTR_PI_USER_PROMPT_LENGTH,
   ATTR_REQUEST_MODEL,
   ATTR_RESPONSE_MODEL,
-  ATTR_INPUT_TOKENS,
-  ATTR_OUTPUT_TOKENS,
+  ATTR_SESSION_ID,
+  ATTR_SYSTEM,
   ATTR_TOKEN_TYPE,
+  ATTR_TOOL_CALL_ARGUMENTS,
+  ATTR_TOOL_CALL_ID,
+  ATTR_TOOL_CALL_RESULT,
+  ATTR_TOOL_NAME,
+  type ContentCapture,
+  clampAttr,
+  EVENT_GEN_AI_ASSISTANT_MESSAGE,
+  EVENT_GEN_AI_CHOICE,
+  EVENT_GEN_AI_TOOL_MESSAGE,
+  EVENT_GEN_AI_USER_MESSAGE,
   GEN_AI_SYSTEM_PI,
   SPAN_INTERACTION,
   SPAN_LLM_REQUEST,
   SPAN_TURN,
   spanToolName,
-  clampAttr,
-  type ContentCapture,
 } from "./attrs.js";
+import { emitLifecycleLog } from "./otel/logs.js";
 import {
   getDurationHistogram,
   getTokenHistogram,
+  getToolCallsCounter,
   getToolCallsHistogram,
 } from "./otel/metrics.js";
-import { emitLifecycleLog } from "./otel/logs.js";
-import { SeverityNumber, type LogAttributes } from "@opentelemetry/api-logs";
 
 export interface SpanTrackerOpts {
   tracer: Tracer;
@@ -96,8 +103,7 @@ function extractMessageText(content: unknown): string {
   const parts: string[] = [];
   for (const p of content as any[]) {
     if (!p || typeof p !== "object") continue;
-    if (typeof p.text === "string") parts.push(p.text);
-    else if (p.type === "text" && typeof p.text === "string") parts.push(p.text);
+    if (p.type === "text" && typeof p.text === "string") parts.push(p.text);
   }
   return parts.join("\n");
 }
@@ -175,7 +181,9 @@ export class SpanTracker {
         attrs[ATTR_PI_USER_PROMPT] = clampAttr(prompt);
       }
     }
-    const span = this.opts.tracer.startSpan(SPAN_INTERACTION, { attributes: attrs });
+    const span = this.opts.tracer.startSpan(SPAN_INTERACTION, {
+      attributes: attrs,
+    });
     const ctx = trace.setSpan(otelContext.active(), span);
     this.interaction = { span, ctx };
   }
@@ -187,7 +195,10 @@ export class SpanTracker {
     span.setAttribute(ATTR_PI_TOOL_COUNT, this.toolCount);
     if (error) {
       span.setAttribute(ATTR_ERROR_TYPE, (error as Error)?.name ?? "Error");
-      span.setStatus({ code: SpanStatusCode.ERROR, message: String((error as Error)?.message ?? error) });
+      span.setStatus({
+        code: SpanStatusCode.ERROR,
+        message: String((error as Error)?.message ?? error),
+      });
     }
     // Close stragglers defensively.
     if (this.llm) {
@@ -228,7 +239,10 @@ export class SpanTracker {
   endTurn(error?: unknown): void {
     if (!this.turn) return;
     if (error) {
-      this.turn.span.setAttribute(ATTR_ERROR_TYPE, (error as Error)?.name ?? "Error");
+      this.turn.span.setAttribute(
+        ATTR_ERROR_TYPE,
+        (error as Error)?.name ?? "Error",
+      );
       this.turn.span.setStatus({
         code: SpanStatusCode.ERROR,
         message: String((error as Error)?.message ?? error),
@@ -244,7 +258,8 @@ export class SpanTracker {
       this.llm.span.end();
       this.llm = null;
     }
-    const parentCtx = this.turn?.ctx ?? this.interaction?.ctx ?? otelContext.active();
+    const parentCtx =
+      this.turn?.ctx ?? this.interaction?.ctx ?? otelContext.active();
     const attrs = this.commonAttrs();
     attrs[ATTR_OPERATION_NAME] = "chat";
     if (model) attrs[ATTR_REQUEST_MODEL] = model;
@@ -254,7 +269,12 @@ export class SpanTracker {
       parentCtx,
     );
     const ctx = trace.setSpan(parentCtx, span);
-    this.llm = { span, ctx, startNs: process.hrtime.bigint(), requestModel: model };
+    this.llm = {
+      span,
+      ctx,
+      startNs: process.hrtime.bigint(),
+      requestModel: model,
+    };
     this.currentInputMessages = [];
     this.flushPendingMessages();
   }
@@ -279,7 +299,7 @@ export class SpanTracker {
           role: "user",
           content: clampAttr(m.content),
         };
-        this.llm.span.addEvent("gen_ai.user.message", attrs);
+        this.llm.span.addEvent(EVENT_GEN_AI_USER_MESSAGE, attrs);
         this.currentInputMessages.push({
           role: "user",
           parts: [{ type: "text", content: m.content }],
@@ -292,7 +312,7 @@ export class SpanTracker {
           ...(m.toolName ? { name: m.toolName } : {}),
           content: clampAttr(m.content),
         };
-        this.llm.span.addEvent("gen_ai.tool.message", attrs);
+        this.llm.span.addEvent(EVENT_GEN_AI_TOOL_MESSAGE, attrs);
         this.currentInputMessages.push({
           role: "tool",
           parts: [
@@ -348,7 +368,8 @@ export class SpanTracker {
    */
   noteAssistantMessage(message: any): void {
     if (!this.llm) return;
-    if (typeof message?.model === "string") this.llm.responseModel = message.model;
+    if (typeof message?.model === "string")
+      this.llm.responseModel = message.model;
     const allowTool = this.opts.captureContent === "full";
     const toolCalls = extractToolCalls(message?.content, allowTool);
     this.llm.toolCallCount = toolCalls.length;
@@ -361,15 +382,18 @@ export class SpanTracker {
     };
     if (text) assistantAttrs.content = clampAttr(text);
     if (toolCalls.length) assistantAttrs.tool_calls = clampAttr(toolCalls);
-    this.llm.span.addEvent("gen_ai.assistant.message", assistantAttrs);
+    this.llm.span.addEvent(EVENT_GEN_AI_ASSISTANT_MESSAGE, assistantAttrs);
 
     const finish =
-      message?.stopReason ?? message?.finishReason ?? message?.finish_reason ?? "stop";
+      message?.stopReason ??
+      message?.finishReason ??
+      message?.finish_reason ??
+      "stop";
     const choiceMessage: Record<string, unknown> = { role: "assistant" };
     if (text) choiceMessage.content = text;
     if (toolCalls.length) choiceMessage.tool_calls = toolCalls;
     const finishReasonStr = typeof finish === "string" ? finish : "stop";
-    this.llm.span.addEvent("gen_ai.choice", {
+    this.llm.span.addEvent(EVENT_GEN_AI_CHOICE, {
       [ATTR_SYSTEM]: GEN_AI_SYSTEM_PI,
       index: 0,
       finish_reason: finishReasonStr,
@@ -397,12 +421,12 @@ export class SpanTracker {
 
     if (this.currentInputMessages.length > 0) {
       this.llm.span.setAttribute(
-        "gen_ai.input.messages",
+        ATTR_GEN_AI_INPUT_MESSAGES,
         clampAttr(this.currentInputMessages),
       );
     }
     this.llm.span.setAttribute(
-      "gen_ai.output.messages",
+      ATTR_GEN_AI_OUTPUT_MESSAGES,
       clampAttr(outputMessages),
     );
   }
@@ -446,8 +470,10 @@ export class SpanTracker {
         [ATTR_ERROR_TYPE]: errName,
         "exception.message": errMsg,
       };
-      if (this.llm.requestModel) attrs["gen_ai.request.model"] = this.llm.requestModel;
-      if (this.llm.responseModel) attrs["gen_ai.response.model"] = this.llm.responseModel;
+      if (this.llm.requestModel)
+        attrs[ATTR_REQUEST_MODEL] = this.llm.requestModel;
+      if (this.llm.responseModel)
+        attrs[ATTR_RESPONSE_MODEL] = this.llm.responseModel;
       const stack = (error as Error)?.stack;
       if (typeof stack === "string") attrs["exception.stacktrace"] = stack;
       emitLifecycleLog(
@@ -465,14 +491,15 @@ export class SpanTracker {
 
   private recordLlmMetrics(error?: unknown): void {
     if (!this.llm) return;
-    const elapsedSec =
-      Number(process.hrtime.bigint() - this.llm.startNs) / 1e9;
+    const elapsedSec = Number(process.hrtime.bigint() - this.llm.startNs) / 1e9;
     const baseAttrs: Record<string, string> = {
       [ATTR_SYSTEM]: GEN_AI_SYSTEM_PI,
       [ATTR_OPERATION_NAME]: "chat",
     };
-    if (this.llm.requestModel) baseAttrs[ATTR_REQUEST_MODEL] = this.llm.requestModel;
-    if (this.llm.responseModel) baseAttrs[ATTR_RESPONSE_MODEL] = this.llm.responseModel;
+    if (this.llm.requestModel)
+      baseAttrs[ATTR_REQUEST_MODEL] = this.llm.requestModel;
+    if (this.llm.responseModel)
+      baseAttrs[ATTR_RESPONSE_MODEL] = this.llm.responseModel;
     if (error) baseAttrs[ATTR_ERROR_TYPE] = (error as Error)?.name ?? "Error";
 
     try {
@@ -499,7 +526,8 @@ export class SpanTracker {
     // Tool spans are siblings of pi.llm_request under pi.turn (SPEC §5).
     // Parenting under the LLM span would imply the tool ran *during* the model
     // call; tools actually execute after it.
-    const parentCtx = this.turn?.ctx ?? this.interaction?.ctx ?? otelContext.active();
+    const parentCtx =
+      this.turn?.ctx ?? this.interaction?.ctx ?? otelContext.active();
     const attrs = this.commonAttrs();
     attrs[ATTR_PI_TOOL_NAME] = toolName;
     attrs[ATTR_PI_TOOL_CALL_ID] = toolCallId;
@@ -553,6 +581,16 @@ export class SpanTracker {
     }
     slot.span.end();
     this.tools.delete(toolCallId);
+    try {
+      const counterAttrs: Record<string, string> = {
+        [ATTR_SYSTEM]: GEN_AI_SYSTEM_PI,
+        [ATTR_TOOL_NAME]: slot.name,
+      };
+      if (args.isError) counterAttrs[ATTR_ERROR_TYPE] = "tool_error";
+      getToolCallsCounter().add(1, counterAttrs);
+    } catch {
+      // Metrics are best-effort — never block lifecycle.
+    }
   }
 
   /**

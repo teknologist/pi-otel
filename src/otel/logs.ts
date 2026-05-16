@@ -9,10 +9,10 @@
 
 import type { DiagLogger } from "@opentelemetry/api";
 import {
+  type LogAttributes,
+  type Logger,
   logs,
   SeverityNumber,
-  type Logger,
-  type LogAttributes,
 } from "@opentelemetry/api-logs";
 
 const LOGGER_NAME = "pi-otel";
@@ -65,7 +65,10 @@ export function emitLifecycleLog(
   body: string,
   attrs: LogAttributes = {},
 ): void {
-  emitLogRecord(getLogger(), severity, body, { "event.name": eventName, ...attrs });
+  emitLogRecord(getLogger(), severity, body, {
+    "event.name": eventName,
+    ...attrs,
+  });
 }
 
 function stringifyArg(a: unknown): string {
@@ -82,19 +85,40 @@ function stringifyArg(a: unknown): string {
 // batch interval and drown signal in Aspire Structured Logs.
 const BRIDGE_DROP = /^(?:items to be sent|OTLPExportDelegate|Export\()/i;
 
-function emitBridge(severity: SeverityNumber, message: string, args: unknown[]): void {
-  if (BRIDGE_DROP.test(message)) return;
+// Guards against re-entrant calls: logs.getLogger() itself calls diag.warn(),
+// which would recurse infinitely if bridgeLogger is not yet cached.
+let bridgeEmitting = false;
+
+function emitBridge(
+  severity: SeverityNumber,
+  message: unknown,
+  args: unknown[],
+): void {
+  if (bridgeEmitting) return;
+  // OTel JS internals occasionally pass an Error as the first arg even though
+  // DiagLogger types it as string. Normalize so body is always a human-readable
+  // string (Aspire renders body as the Message column).
+  const text = typeof message === "string" ? message : stringifyArg(message);
+  if (BRIDGE_DROP.test(text)) return;
   const attributes: LogAttributes =
     args.length > 0 ? { "diag.args": args.map(stringifyArg) } : {};
-  emitLogRecord(getBridgeLogger(), severity, message, attributes);
+  bridgeEmitting = true;
+  try {
+    emitLogRecord(getBridgeLogger(), severity, text, attributes);
+  } finally {
+    bridgeEmitting = false;
+  }
 }
 
 export function buildBridgeDiagLogger(): DiagLogger {
   return {
-    verbose: (message, ...args) => emitBridge(SeverityNumber.DEBUG, message, args),
-    debug: (message, ...args) => emitBridge(SeverityNumber.DEBUG, message, args),
+    verbose: (message, ...args) =>
+      emitBridge(SeverityNumber.DEBUG, message, args),
+    debug: (message, ...args) =>
+      emitBridge(SeverityNumber.DEBUG, message, args),
     info: (message, ...args) => emitBridge(SeverityNumber.INFO, message, args),
     warn: (message, ...args) => emitBridge(SeverityNumber.WARN, message, args),
-    error: (message, ...args) => emitBridge(SeverityNumber.ERROR, message, args),
+    error: (message, ...args) =>
+      emitBridge(SeverityNumber.ERROR, message, args),
   };
 }
