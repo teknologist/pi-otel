@@ -4,9 +4,6 @@
 
 OpenTelemetry tracing for [pi](https://github.com/earendil-works/pi-coding-agent) agent.
 
-
-One trace tree per user prompt, exported to a local [.NET Aspire dashboard](https://aspire.dev/dashboard/standalone/) by default.
-
 Full OTel GenAI semantic-convention coverage (`gen_ai.*`) for token usage, cost, model, finish reasons, and tool calls.
 
 <table>
