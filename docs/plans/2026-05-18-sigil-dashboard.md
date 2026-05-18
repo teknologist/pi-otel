@@ -138,9 +138,9 @@ Use real Pi traffic to verify the complete metrics-to-dashboard-to-trace-drilldo
 
 ## Task 7: Validate dashboard behavior end to end
 
-- [ ] Implemented
-- [ ] Verified
-- [ ] Reviewed
+- [x] Implemented
+- [x] Verified
+- [x] Reviewed
 
 ### Acceptance criteria
 

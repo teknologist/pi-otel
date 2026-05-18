@@ -155,9 +155,9 @@ Cost is metric-backed in v1 through the pi-owned `pi.cost.usd` counter.
 
 The table starts from `pi.llm_request` because those spans carry token/model data. It intentionally includes only conversations with at least one LLM call; zero-LLM interactions are out of scope for a highest-token-usage table. `pi.interaction` remains the root span for interaction counting and drill-down context, not token aggregation.
 
-Grafana renders this as a table; column order set via the **Organize fields** transform to: `conversation_id | total_tokens | llm_calls | models | errors | last_seen`.
+Grafana renders the preferred multi-aggregate query as a table; column order set via the **Organize fields** transform to: `conversation_id | total_tokens | llm_calls | models | errors | last_seen`. When using the shipped `grafana/otel-lgtm` fallback below, the table is intentionally narrower: `conversation_id | input_tokens | Time`, with the conversation-id drilldown providing the full trace timeline.
 
-> Note on TraceQL syntax: the exact aggregation grammar is still evolving in Tempo 2.x. If the multi-aggregate form above isn't supported by the deployed Tempo, fall back to separate panel queries joined via the **Merge** transform on `span.gen_ai.conversation.id`. The preferred `errors` value counts any `{status=error}` span in the **Conversation**, not only failed `pi.llm_request` spans; implement that as a separate all-span error query and merge it when the single-query form cannot express it.
+> Note on TraceQL syntax: the exact aggregation grammar is still evolving in Tempo 2.x. The shipped `grafana/otel-lgtm` image exposes TraceQL metrics through `/api/metrics/query_range` and does not support the multi-aggregate table query above. Fall back to separate metrics queries such as `sum_over_time(span.gen_ai.usage.input_tokens) by (span.gen_ai.conversation.id)` and `count_over_time() by (span.gen_ai.conversation.id)`, joined via the **Merge** transform on `span.gen_ai.conversation.id`. The preferred `errors` value counts any `{status=error}` span in the **Conversation**, not only failed `pi.llm_request` spans; implement that as a separate all-span error query and merge it when the single-query form cannot express it.
 
 **Data link** (per-row, opens Tempo Explore filtered by conversation id):
 
@@ -167,7 +167,7 @@ Grafana renders this as a table; column order set via the **Organize fields** tr
   "queries": [{
     "refId": "A",
     "queryType": "traceql",
-    "query": "{ resource.gen_ai.conversation.id = \"${__data.fields.conversation_id}\" }"
+    "query": "{ span.gen_ai.conversation.id = \"${__data.fields.conversation_id}\" }"
   }],
   "range": { "from": "${__from}", "to": "${__to}" }
 }
@@ -199,7 +199,7 @@ None. The dashboard works with the existing `signals.metrics: true` + `signals.t
 - In Grafana, open the new dashboard, confirm:
   - Prometheus-backed token and cost stat cards populate within ~10 s.
   - "Highest token usage conversations" table shows one row per recent session.
-  - Clicking a row lands in Tempo Explore with `resource.gen_ai.conversation.id = "<id>"` pre-filled.
+  - Clicking a row lands in Tempo Explore with `span.gen_ai.conversation.id = "<id>"` pre-filled.
 
 ## 8. Open questions
 

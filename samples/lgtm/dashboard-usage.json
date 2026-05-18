@@ -692,7 +692,7 @@
             "type": "tempo",
             "uid": "$tempo_ds"
           },
-          "query": "{ name = \"pi.llm_request\" }\n  | by(span.gen_ai.conversation.id)\n  | aggregate(\n      total_tokens = sum_over_time(span.gen_ai.usage.input_tokens + span.gen_ai.usage.output_tokens),\n      llm_calls    = count_over_time(),\n      errors       = count_over_time({status=error}),\n      last_seen    = max_over_time(end_time),\n      models       = collect(span.gen_ai.response.model)\n    )",
+          "query": "{ name = \"pi.llm_request\" } | sum_over_time(span.gen_ai.usage.input_tokens) by (span.gen_ai.conversation.id)",
           "queryType": "traceql",
           "refId": "A"
         }
@@ -711,7 +711,7 @@
                 "value": [
                   {
                     "title": "Open conversation in Tempo",
-                    "url": "/explore?orgId=1&left={\"datasource\":\"${tempo_ds}\",\"queries\":[{\"refId\":\"A\",\"queryType\":\"traceql\",\"query\":\"{ resource.gen_ai.conversation.id = \\\"${__data.fields.conversation_id}\\\" }\"}],\"range\":{\"from\":\"${__from}\",\"to\":\"${__to}\"}}"
+                    "url": "/explore?orgId=1&left={\"datasource\":\"${tempo_ds}\",\"queries\":[{\"refId\":\"A\",\"queryType\":\"traceql\",\"query\":\"{ span.gen_ai.conversation.id = \\\"${__data.fields.conversation_id}\\\" }\"}],\"range\":{\"from\":\"${__from}\",\"to\":\"${__to}\"}}"
                   }
                 ]
               }
@@ -726,14 +726,12 @@
             "excludeByName": {},
             "indexByName": {
               "conversation_id": 0,
-              "total_tokens": 1,
-              "llm_calls": 2,
-              "models": 3,
-              "errors": 4,
-              "last_seen": 5
+              "Value": 1,
+              "Time": 2
             },
             "renameByName": {
-              "span.gen_ai.conversation.id": "conversation_id"
+              "span.gen_ai.conversation.id": "conversation_id",
+              "Value": "input_tokens"
             }
           }
         }
@@ -741,7 +739,8 @@
       "options": {
         "showHeader": true,
         "cellHeight": "sm"
-      }
+      },
+      "description": "Tempo TraceQL metrics fallback for grafana/otel-lgtm: input-token usage by conversation. Use the linked conversation id to inspect full trace details."
     }
   ],
   "refresh": "10s",
