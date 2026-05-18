@@ -39,6 +39,7 @@ import {
   ATTR_HTTP_STATUS_CODE,
   ATTR_PI_CWD,
   ATTR_PI_SESSION_ID,
+  ATTR_PROVIDER_NAME,
   ATTR_REQUEST_MODEL,
   ATTR_RESPONSE_ID,
   ATTR_RESPONSE_MODEL,
@@ -62,6 +63,13 @@ const SEVERITY_MAP: Record<string, SeverityNumber> = {
   warn: SeverityNumber.WARN,
   error: SeverityNumber.ERROR,
 };
+
+function firstString(...values: unknown[]): string | undefined {
+  for (const value of values) {
+    if (typeof value === "string" && value) return value;
+  }
+  return undefined;
+}
 
 export default function (pi: ExtensionAPI): void {
   registerOtelCommand(pi, () => ctx0?.cwd);
@@ -207,12 +215,25 @@ export default function (pi: ExtensionAPI): void {
 
   pi.on("before_provider_request", async (event, _ctx) => {
     // event.payload shape varies per provider; try to lift a model field.
+    const e = event as any;
     const payload = (event as any)?.payload;
     const model =
       payload?.model ?? payload?.modelId ?? payload?.modelName ?? undefined;
+    const provider = firstString(
+      e?.provider,
+      e?.providerName,
+      e?.modelProvider,
+      payload?.provider,
+      payload?.providerName,
+      payload?.modelProvider,
+      payload?.provider?.name,
+    );
     tracker?.startLlmRequest(typeof model === "string" ? model : undefined);
-    if (typeof model === "string") {
-      tracker?.setLlmAttrs({ [ATTR_REQUEST_MODEL]: model });
+    const attrs: Record<string, string> = {};
+    if (typeof model === "string") attrs[ATTR_REQUEST_MODEL] = model;
+    if (provider) attrs[ATTR_PROVIDER_NAME] = provider;
+    if (Object.keys(attrs).length > 0) {
+      tracker?.setLlmAttrs(attrs);
     }
   });
 

@@ -58,10 +58,18 @@ export const getToolCallsHistogram = () =>
     advice: { explicitBucketBoundaries: TOOL_CALL_BUCKETS },
   });
 
-export const getToolCallsCounter = () =>
-  getCounter("gen_ai.client.tool.calls", {
-    description: "Total number of tool calls invoked by the agent",
-    unit: "{call}",
+export const getCostCounter = () =>
+  getCounter("pi.cost.usd", {
+    description: "Estimated cost observed by pi-otel in USD",
+    // Lowercase UCUM currency keeps Prometheus export at pi_cost_usd_total;
+    // uppercase "USD" is treated as a separate unit suffix by the exporter.
+    unit: "usd",
+  });
+
+export const getInteractionsCounter = () =>
+  getCounter("pi.interactions", {
+    description: "Total number of pi interactions observed by pi-otel",
+    unit: "{interaction}",
   });
 
 export function resetMetricHandles(): void {

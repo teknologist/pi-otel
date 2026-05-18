@@ -19,6 +19,7 @@ import {
 } from "@opentelemetry/api";
 import { type LogAttributes, SeverityNumber } from "@opentelemetry/api-logs";
 import {
+  ATTR_AGENT_NAME,
   ATTR_CONVERSATION_ID,
   ATTR_ERROR_TYPE,
   ATTR_GEN_AI_INPUT_MESSAGES,
@@ -26,6 +27,7 @@ import {
   ATTR_INPUT_TOKENS,
   ATTR_OPERATION_NAME,
   ATTR_OUTPUT_TOKENS,
+  ATTR_PI_COST_USD,
   ATTR_PI_CWD,
   ATTR_PI_SESSION_ID,
   ATTR_PI_TOOL_CALL_ID,
@@ -38,6 +40,7 @@ import {
   ATTR_PI_TURN_INDEX,
   ATTR_PI_USER_PROMPT,
   ATTR_PI_USER_PROMPT_LENGTH,
+  ATTR_PROVIDER_NAME,
   ATTR_REQUEST_MODEL,
   ATTR_RESPONSE_MODEL,
   ATTR_SESSION_ID,
@@ -61,9 +64,10 @@ import {
 } from "./attrs.js";
 import { emitLifecycleLog } from "./otel/logs.js";
 import {
+  getCostCounter,
   getDurationHistogram,
+  getInteractionsCounter,
   getTokenHistogram,
-  getToolCallsCounter,
   getToolCallsHistogram,
 } from "./otel/metrics.js";
 
@@ -78,14 +82,17 @@ interface ToolSlot {
   span: Span;
   ctx: Context;
   name: string;
+  startNs: bigint;
 }
 
 interface LlmSlot {
   span: Span;
   ctx: Context;
   startNs: bigint;
+  providerName?: string;
   requestModel?: string;
   responseModel?: string;
+  costUsd?: number;
   inputTokens?: number;
   outputTokens?: number;
   toolCallCount?: number;
@@ -159,6 +166,7 @@ export class SpanTracker {
   private commonAttrs(): Record<string, string | number | boolean> {
     const sid = this.opts.sessionId();
     const attrs: Record<string, string | number | boolean> = {
+      [ATTR_AGENT_NAME]: GEN_AI_SYSTEM_PI,
       [ATTR_SYSTEM]: GEN_AI_SYSTEM_PI,
       [ATTR_PI_CWD]: this.opts.cwd,
     };
@@ -186,6 +194,13 @@ export class SpanTracker {
     });
     const ctx = trace.setSpan(otelContext.active(), span);
     this.interaction = { span, ctx };
+    try {
+      getInteractionsCounter().add(1, {
+        [ATTR_AGENT_NAME]: GEN_AI_SYSTEM_PI,
+      });
+    } catch {
+      // Metrics are best-effort — never block span lifecycle.
+    }
   }
 
   endInteraction(error?: unknown): void {
@@ -435,8 +450,14 @@ export class SpanTracker {
     if (!this.llm) return;
     const respModel = attrs[ATTR_RESPONSE_MODEL];
     if (typeof respModel === "string") this.llm.responseModel = respModel;
+    const providerName = attrs[ATTR_PROVIDER_NAME];
+    if (typeof providerName === "string") this.llm.providerName = providerName;
     const reqModel = attrs[ATTR_REQUEST_MODEL];
     if (typeof reqModel === "string") this.llm.requestModel = reqModel;
+    const costUsd = attrs[ATTR_PI_COST_USD];
+    if (typeof costUsd === "number" && Number.isFinite(costUsd)) {
+      this.llm.costUsd = costUsd;
+    }
     const inTok = attrs[ATTR_INPUT_TOKENS];
     if (typeof inTok === "number") this.llm.inputTokens = inTok;
     const outTok = attrs[ATTR_OUTPUT_TOKENS];
@@ -493,13 +514,13 @@ export class SpanTracker {
     if (!this.llm) return;
     const elapsedSec = Number(process.hrtime.bigint() - this.llm.startNs) / 1e9;
     const baseAttrs: Record<string, string> = {
+      [ATTR_AGENT_NAME]: GEN_AI_SYSTEM_PI,
       [ATTR_SYSTEM]: GEN_AI_SYSTEM_PI,
       [ATTR_OPERATION_NAME]: "chat",
+      [ATTR_PROVIDER_NAME]: this.llm.providerName ?? "unknown",
+      [ATTR_REQUEST_MODEL]: this.llm.requestModel ?? "unknown",
+      [ATTR_RESPONSE_MODEL]: this.llm.responseModel ?? "unknown",
     };
-    if (this.llm.requestModel)
-      baseAttrs[ATTR_REQUEST_MODEL] = this.llm.requestModel;
-    if (this.llm.responseModel)
-      baseAttrs[ATTR_RESPONSE_MODEL] = this.llm.responseModel;
     if (error) baseAttrs[ATTR_ERROR_TYPE] = (error as Error)?.name ?? "Error";
 
     try {
@@ -517,6 +538,13 @@ export class SpanTracker {
         });
       }
       getToolCallsHistogram().record(this.llm.toolCallCount ?? 0, baseAttrs);
+      if (typeof this.llm.costUsd === "number") {
+        getCostCounter().add(this.llm.costUsd, {
+          [ATTR_AGENT_NAME]: GEN_AI_SYSTEM_PI,
+          [ATTR_PROVIDER_NAME]: this.llm.providerName ?? "unknown",
+          [ATTR_RESPONSE_MODEL]: this.llm.responseModel ?? "unknown",
+        });
+      }
     } catch {
       // Metrics are best-effort — never block span lifecycle.
     }
@@ -544,7 +572,12 @@ export class SpanTracker {
       parentCtx,
     );
     const ctx = trace.setSpan(parentCtx, span);
-    this.tools.set(toolCallId, { span, ctx, name: toolName });
+    this.tools.set(toolCallId, {
+      span,
+      ctx,
+      name: toolName,
+      startNs: process.hrtime.bigint(),
+    });
     this.toolCount += 1;
   }
 
@@ -579,18 +612,21 @@ export class SpanTracker {
       slot.span.setAttribute(ATTR_PI_TOOL_OUTPUT, clamped);
       slot.span.setAttribute(ATTR_TOOL_CALL_RESULT, clamped);
     }
-    slot.span.end();
-    this.tools.delete(toolCallId);
     try {
-      const counterAttrs: Record<string, string> = {
+      const elapsedSec = Number(process.hrtime.bigint() - slot.startNs) / 1e9;
+      const metricAttrs: Record<string, string> = {
+        [ATTR_AGENT_NAME]: GEN_AI_SYSTEM_PI,
         [ATTR_SYSTEM]: GEN_AI_SYSTEM_PI,
+        [ATTR_OPERATION_NAME]: "execute_tool",
         [ATTR_TOOL_NAME]: slot.name,
       };
-      if (args.isError) counterAttrs[ATTR_ERROR_TYPE] = "tool_error";
-      getToolCallsCounter().add(1, counterAttrs);
+      if (args.isError) metricAttrs[ATTR_ERROR_TYPE] = "tool_error";
+      getDurationHistogram().record(elapsedSec, metricAttrs);
     } catch {
-      // Metrics are best-effort — never block lifecycle.
+      // Metrics are best-effort — never block span lifecycle.
     }
+    slot.span.end();
+    this.tools.delete(toolCallId);
   }
 
   /**
