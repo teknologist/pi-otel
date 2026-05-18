@@ -97,9 +97,9 @@ Only build the dashboard after metric names/labels are stable.
 
 ## Task 5: Add usage dashboard JSON
 
-- [ ] Implemented
-- [ ] Verified
-- [ ] Reviewed
+- [x] Implemented
+- [x] Verified
+- [x] Reviewed
 
 ### Acceptance criteria
 

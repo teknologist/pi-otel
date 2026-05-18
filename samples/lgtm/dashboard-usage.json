@@ -1,0 +1,854 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Total Tokens",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "$prom_ds"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 0
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$prom_ds"
+          },
+          "editorMode": "code",
+          "expr": "sum(increase(gen_ai_client_token_usage_sum{gen_ai_agent_name=~\"$agent\", gen_ai_provider_name=~\"$provider\", gen_ai_response_model=~\"$model\"}[$__range]))",
+          "instant": false,
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Input Tokens",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "$prom_ds"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 0
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$prom_ds"
+          },
+          "editorMode": "code",
+          "expr": "sum(increase(gen_ai_client_token_usage_sum{gen_ai_agent_name=~\"$agent\", gen_ai_provider_name=~\"$provider\", gen_ai_response_model=~\"$model\", gen_ai_token_type=\"input\"}[$__range]))",
+          "instant": false,
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Output Tokens",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "$prom_ds"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 0
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$prom_ds"
+          },
+          "editorMode": "code",
+          "expr": "sum(increase(gen_ai_client_token_usage_sum{gen_ai_agent_name=~\"$agent\", gen_ai_provider_name=~\"$provider\", gen_ai_response_model=~\"$model\", gen_ai_token_type=\"output\"}[$__range]))",
+          "instant": false,
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Cache Hit Rate",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "$prom_ds"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 12,
+        "y": 0
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$prom_ds"
+          },
+          "editorMode": "code",
+          "expr": "sum(increase(gen_ai_client_token_usage_sum{gen_ai_agent_name=~\"$agent\", gen_ai_provider_name=~\"$provider\", gen_ai_response_model=~\"$model\", gen_ai_token_type=\"cache_read\"}[$__range])) / clamp_min(sum(increase(gen_ai_client_token_usage_sum{gen_ai_agent_name=~\"$agent\", gen_ai_provider_name=~\"$provider\", gen_ai_response_model=~\"$model\", gen_ai_token_type=~\"input|cache_read\"}[$__range])), 1)",
+          "instant": false,
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Estimated Cost",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "$prom_ds"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 16,
+        "y": 0
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$prom_ds"
+          },
+          "editorMode": "code",
+          "expr": "sum(increase(pi_cost_usd_total{gen_ai_agent_name=~\"$agent\", gen_ai_provider_name=~\"$provider\", gen_ai_response_model=~\"$model\"}[$__range]))",
+          "instant": false,
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Avg Cost / Interaction",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "$prom_ds"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 20,
+        "y": 0
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$prom_ds"
+          },
+          "editorMode": "code",
+          "expr": "sum(increase(pi_cost_usd_total{gen_ai_agent_name=~\"$agent\"}[$__range])) / clamp_min(sum(increase(pi_interactions_total{gen_ai_agent_name=~\"$agent\"}[$__range])), 1)",
+          "instant": false,
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Tokens by type over time",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "$prom_ds"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$prom_ds"
+          },
+          "editorMode": "code",
+          "expr": "sum(increase(gen_ai_client_token_usage_sum{gen_ai_agent_name=~\"$agent\", gen_ai_provider_name=~\"$provider\", gen_ai_response_model=~\"$model\"}[$__rate_interval])) by (gen_ai_token_type)",
+          "instant": false,
+          "range": true,
+          "refId": "A",
+          "legendFormat": "{{gen_ai_token_type}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 8,
+      "type": "bargauge",
+      "title": "Tokens by type",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "$prom_ds"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$prom_ds"
+          },
+          "editorMode": "code",
+          "expr": "sum(increase(gen_ai_client_token_usage_sum{gen_ai_agent_name=~\"$agent\", gen_ai_provider_name=~\"$provider\", gen_ai_response_model=~\"$model\"}[$__range])) by (gen_ai_token_type)",
+          "instant": false,
+          "range": true,
+          "refId": "A",
+          "legendFormat": "{{gen_ai_token_type}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"],
+          "fields": ""
+        },
+        "showUnfilled": true
+      }
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Tokens over time by model",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "$prom_ds"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 12
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$prom_ds"
+          },
+          "editorMode": "code",
+          "expr": "sum(increase(gen_ai_client_token_usage_sum{gen_ai_agent_name=~\"$agent\", gen_ai_provider_name=~\"$provider\", gen_ai_response_model=~\"$model\"}[$__rate_interval])) by (gen_ai_response_model)",
+          "instant": false,
+          "range": true,
+          "refId": "A",
+          "legendFormat": "{{gen_ai_response_model}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 10,
+      "type": "stat",
+      "title": "Tokens by model",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "$prom_ds"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 12
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$prom_ds"
+          },
+          "editorMode": "code",
+          "expr": "sum(increase(gen_ai_client_token_usage_sum{gen_ai_agent_name=~\"$agent\", gen_ai_provider_name=~\"$provider\", gen_ai_response_model=~\"$model\"}[$__range])) by (gen_ai_response_model)",
+          "instant": false,
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Cost over time by model",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "$prom_ds"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 20
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$prom_ds"
+          },
+          "editorMode": "code",
+          "expr": "sum(increase(pi_cost_usd_total{gen_ai_agent_name=~\"$agent\", gen_ai_provider_name=~\"$provider\", gen_ai_response_model=~\"$model\"}[$__rate_interval])) by (gen_ai_response_model)",
+          "instant": false,
+          "range": true,
+          "refId": "A",
+          "legendFormat": "{{gen_ai_response_model}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 12,
+      "type": "stat",
+      "title": "Cost by model",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "$prom_ds"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 20
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$prom_ds"
+          },
+          "editorMode": "code",
+          "expr": "sum(increase(pi_cost_usd_total{gen_ai_agent_name=~\"$agent\", gen_ai_provider_name=~\"$provider\", gen_ai_response_model=~\"$model\"}[$__range])) by (gen_ai_response_model)",
+          "instant": false,
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Tool calls over time",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "$prom_ds"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 28
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$prom_ds"
+          },
+          "editorMode": "code",
+          "expr": "sum(increase(gen_ai_client_operation_duration_seconds_count{gen_ai_agent_name=~\"$agent\", gen_ai_operation_name=\"execute_tool\"}[$__rate_interval])) by (gen_ai_tool_name)",
+          "instant": false,
+          "range": true,
+          "refId": "A",
+          "legendFormat": "{{gen_ai_tool_name}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 14,
+      "type": "bargauge",
+      "title": "Tool calls by tool",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "$prom_ds"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 28
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$prom_ds"
+          },
+          "editorMode": "code",
+          "expr": "sum(increase(gen_ai_client_operation_duration_seconds_count{gen_ai_agent_name=~\"$agent\", gen_ai_operation_name=\"execute_tool\"}[$__range])) by (gen_ai_tool_name)",
+          "instant": false,
+          "range": true,
+          "refId": "A",
+          "legendFormat": "{{gen_ai_tool_name}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"],
+          "fields": ""
+        },
+        "showUnfilled": true
+      }
+    },
+    {
+      "id": 15,
+      "type": "table",
+      "title": "Highest token usage conversations",
+      "datasource": {
+        "type": "tempo",
+        "uid": "$tempo_ds"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 36
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "tempo",
+            "uid": "$tempo_ds"
+          },
+          "query": "{ name = \"pi.llm_request\" }\n  | by(span.gen_ai.conversation.id)\n  | aggregate(\n      total_tokens = sum_over_time(span.gen_ai.usage.input_tokens + span.gen_ai.usage.output_tokens),\n      llm_calls    = count_over_time(),\n      errors       = count_over_time({status=error}),\n      last_seen    = max_over_time(end_time),\n      models       = collect(span.gen_ai.response.model)\n    )",
+          "queryType": "traceql",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "conversation_id"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Open conversation in Tempo",
+                    "url": "/explore?orgId=1&left={\"datasource\":\"${tempo_ds}\",\"queries\":[{\"refId\":\"A\",\"queryType\":\"traceql\",\"query\":\"{ resource.gen_ai.conversation.id = \\\"${__data.fields.conversation_id}\\\" }\"}],\"range\":{\"from\":\"${__from}\",\"to\":\"${__to}\"}}"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {
+              "conversation_id": 0,
+              "total_tokens": 1,
+              "llm_calls": 2,
+              "models": 3,
+              "errors": 4,
+              "last_seen": 5
+            },
+            "renameByName": {
+              "span.gen_ai.conversation.id": "conversation_id"
+            }
+          }
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      }
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "tags": ["pi-otel", "gen-ai", "usage"],
+  "templating": {
+    "list": [
+      {
+        "name": "prom_ds",
+        "type": "datasource",
+        "query": "prometheus",
+        "current": {
+          "text": "Prometheus",
+          "value": "prometheus"
+        },
+        "label": "Prometheus",
+        "hide": 0
+      },
+      {
+        "name": "tempo_ds",
+        "type": "datasource",
+        "query": "tempo",
+        "current": {
+          "text": "Tempo",
+          "value": "tempo"
+        },
+        "label": "Tempo",
+        "hide": 0
+      },
+      {
+        "name": "agent",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "$prom_ds"
+        },
+        "query": {
+          "query": "label_values(gen_ai_client_token_usage_count, gen_ai_agent_name)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "refresh": 1,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".*",
+        "current": {
+          "text": "pi",
+          "value": "pi",
+          "selected": true
+        },
+        "label": "Agent",
+        "sort": 1
+      },
+      {
+        "name": "provider",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "$prom_ds"
+        },
+        "query": {
+          "query": "label_values(gen_ai_client_token_usage_count{gen_ai_agent_name=~\"$agent\"}, gen_ai_provider_name)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "refresh": 1,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".*",
+        "current": {
+          "text": "All",
+          "value": "$__all",
+          "selected": true
+        },
+        "label": "Provider",
+        "sort": 1
+      },
+      {
+        "name": "model",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "$prom_ds"
+        },
+        "query": {
+          "query": "label_values(gen_ai_client_token_usage_count{gen_ai_agent_name=~\"$agent\", gen_ai_provider_name=~\"$provider\"}, gen_ai_response_model)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "refresh": 1,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".*",
+        "current": {
+          "text": "All",
+          "value": "$__all",
+          "selected": true
+        },
+        "label": "Model",
+        "sort": 1
+      }
+    ]
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "title": "pi-otel Usage & Cost",
+  "uid": "pi-otel-usage",
+  "version": 1,
+  "weekStart": ""
+}
