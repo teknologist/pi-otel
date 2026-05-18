@@ -184,7 +184,7 @@
             "uid": "$prom_ds"
           },
           "editorMode": "code",
-          "expr": "sum(increase(gen_ai_client_token_usage_sum{gen_ai_agent_name=~\"$agent\", gen_ai_provider_name=~\"$provider\", gen_ai_response_model=~\"$model\", gen_ai_token_type=\"cache_read\"}[$__range])) / clamp_min(sum(increase(gen_ai_client_token_usage_sum{gen_ai_agent_name=~\"$agent\", gen_ai_provider_name=~\"$provider\", gen_ai_response_model=~\"$model\", gen_ai_token_type=~\"input|cache_read\"}[$__range])), 1)",
+          "expr": "(sum(increase(gen_ai_client_token_usage_sum{gen_ai_agent_name=~\"$agent\", gen_ai_provider_name=~\"$provider\", gen_ai_response_model=~\"$model\", gen_ai_token_type=\"cache_read\"}[$__range])) or vector(0)) / clamp_min((sum(increase(gen_ai_client_token_usage_sum{gen_ai_agent_name=~\"$agent\", gen_ai_provider_name=~\"$provider\", gen_ai_response_model=~\"$model\", gen_ai_token_type=~\"input|cache_read\"}[$__range])) or vector(0)), 1)",
           "instant": false,
           "range": true,
           "refId": "A"
@@ -231,7 +231,7 @@
             "uid": "$prom_ds"
           },
           "editorMode": "code",
-          "expr": "sum(increase(pi_cost_usd_total{gen_ai_agent_name=~\"$agent\", gen_ai_provider_name=~\"$provider\", gen_ai_response_model=~\"$model\"}[$__range]))",
+          "expr": "sum(increase(pi_cost_usd_total{gen_ai_agent_name=~\"$agent\", gen_ai_provider_name=~\"$provider\", gen_ai_response_model=~\"$model\"}[$__range])) or vector(0)",
           "instant": false,
           "range": true,
           "refId": "A"
@@ -278,7 +278,7 @@
             "uid": "$prom_ds"
           },
           "editorMode": "code",
-          "expr": "sum(increase(pi_cost_usd_total{gen_ai_agent_name=~\"$agent\"}[$__range])) / clamp_min(sum(increase(pi_interactions_total{gen_ai_agent_name=~\"$agent\"}[$__range])), 1)",
+          "expr": "(sum(increase(pi_cost_usd_total{gen_ai_agent_name=~\"$agent\"}[$__range])) or vector(0)) / clamp_min((sum(increase(pi_interactions_total{gen_ai_agent_name=~\"$agent\"}[$__range])) or vector(0)), 1)",
           "instant": false,
           "range": true,
           "refId": "A"

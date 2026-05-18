@@ -20,6 +20,9 @@ import {
 import { type LogAttributes, SeverityNumber } from "@opentelemetry/api-logs";
 import {
   ATTR_AGENT_NAME,
+  ATTR_CACHE_CREATION_TOKENS,
+  ATTR_CACHE_READ_TOKENS,
+  ATTR_CACHE_WRITE_TOKENS,
   ATTR_CONVERSATION_ID,
   ATTR_ERROR_TYPE,
   ATTR_GEN_AI_INPUT_MESSAGES,
@@ -41,6 +44,7 @@ import {
   ATTR_PI_USER_PROMPT,
   ATTR_PI_USER_PROMPT_LENGTH,
   ATTR_PROVIDER_NAME,
+  ATTR_REASONING_TOKENS,
   ATTR_REQUEST_MODEL,
   ATTR_RESPONSE_MODEL,
   ATTR_SESSION_ID,
@@ -95,6 +99,10 @@ interface LlmSlot {
   costUsd?: number;
   inputTokens?: number;
   outputTokens?: number;
+  cacheReadTokens?: number;
+  cacheWriteTokens?: number;
+  cacheCreationTokens?: number;
+  reasoningTokens?: number;
   toolCallCount?: number;
 }
 
@@ -462,6 +470,18 @@ export class SpanTracker {
     if (typeof inTok === "number") this.llm.inputTokens = inTok;
     const outTok = attrs[ATTR_OUTPUT_TOKENS];
     if (typeof outTok === "number") this.llm.outputTokens = outTok;
+    const cacheReadTok = attrs[ATTR_CACHE_READ_TOKENS];
+    if (typeof cacheReadTok === "number")
+      this.llm.cacheReadTokens = cacheReadTok;
+    const cacheWriteTok = attrs[ATTR_CACHE_WRITE_TOKENS];
+    if (typeof cacheWriteTok === "number")
+      this.llm.cacheWriteTokens = cacheWriteTok;
+    const cacheCreationTok = attrs[ATTR_CACHE_CREATION_TOKENS];
+    if (typeof cacheCreationTok === "number")
+      this.llm.cacheCreationTokens = cacheCreationTok;
+    const reasoningTok = attrs[ATTR_REASONING_TOKENS];
+    if (typeof reasoningTok === "number")
+      this.llm.reasoningTokens = reasoningTok;
     for (const [k, v] of Object.entries(attrs)) {
       if (v === undefined || v === null) continue;
       // OTel SDK requires primitive or primitive[] values.
@@ -535,6 +555,26 @@ export class SpanTracker {
         getTokenHistogram().record(this.llm.outputTokens, {
           ...baseAttrs,
           [ATTR_TOKEN_TYPE]: "output",
+        });
+      }
+      if (typeof this.llm.cacheReadTokens === "number") {
+        getTokenHistogram().record(this.llm.cacheReadTokens, {
+          ...baseAttrs,
+          [ATTR_TOKEN_TYPE]: "cache_read",
+        });
+      }
+      const cacheWriteTokens =
+        (this.llm.cacheWriteTokens ?? 0) + (this.llm.cacheCreationTokens ?? 0);
+      if (cacheWriteTokens > 0) {
+        getTokenHistogram().record(cacheWriteTokens, {
+          ...baseAttrs,
+          [ATTR_TOKEN_TYPE]: "cache_write",
+        });
+      }
+      if (typeof this.llm.reasoningTokens === "number") {
+        getTokenHistogram().record(this.llm.reasoningTokens, {
+          ...baseAttrs,
+          [ATTR_TOKEN_TYPE]: "reasoning",
         });
       }
       getToolCallsHistogram().record(this.llm.toolCallCount ?? 0, baseAttrs);
