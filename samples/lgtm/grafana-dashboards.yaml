@@ -5,3 +5,7 @@ providers:
     type: file
     options:
       path: /dashboards/pi-otel.json
+  - name: pi-otel-usage
+    type: file
+    options:
+      path: /dashboards/pi-otel-usage.json

@@ -117,9 +117,9 @@ Only build the dashboard after metric names/labels are stable.
 
 ## Task 6: Provision the usage dashboard in LGTM sample
 
-- [ ] Implemented
-- [ ] Verified
-- [ ] Reviewed
+- [x] Implemented
+- [x] Verified
+- [x] Reviewed
 
 ### Acceptance criteria
 
