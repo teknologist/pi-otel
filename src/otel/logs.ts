@@ -14,6 +14,7 @@ import {
   logs,
   SeverityNumber,
 } from "@opentelemetry/api-logs";
+import { ATTR_AGENT_NAME, ATTR_SYSTEM, GEN_AI_SYSTEM_PI } from "../attrs.js";
 
 const LOGGER_NAME = "pi-otel";
 const LOGGER_VERSION = "0.1.0";
@@ -68,6 +69,8 @@ export function emitLifecycleLog(
   emitLogRecord(getLogger(), severity, body, {
     "event.name": eventName,
     ...attrs,
+    [ATTR_AGENT_NAME]: GEN_AI_SYSTEM_PI,
+    [ATTR_SYSTEM]: GEN_AI_SYSTEM_PI,
   });
 }
 
@@ -114,7 +117,11 @@ function emitBridge(
     args.length > 0 ? { "diag.args": args.map(stringifyArg) } : {};
   bridgeEmitting = true;
   try {
-    emitLogRecord(getBridgeLogger(), severity, text, attributes);
+    emitLogRecord(getBridgeLogger(), severity, text, {
+      ...attributes,
+      [ATTR_AGENT_NAME]: GEN_AI_SYSTEM_PI,
+      [ATTR_SYSTEM]: GEN_AI_SYSTEM_PI,
+    });
   } finally {
     bridgeEmitting = false;
   }

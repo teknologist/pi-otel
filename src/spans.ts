@@ -155,6 +155,13 @@ type PendingMsg =
   | { kind: "user"; content: string }
   | { kind: "tool"; content: string; toolCallId: string; toolName?: string };
 
+function agentAttrs(): Record<string, string> {
+  return {
+    [ATTR_AGENT_NAME]: GEN_AI_SYSTEM_PI,
+    [ATTR_SYSTEM]: GEN_AI_SYSTEM_PI,
+  };
+}
+
 export class SpanTracker {
   private opts: SpanTrackerOpts;
   private interaction: { span: Span; ctx: Context } | null = null;
@@ -174,8 +181,7 @@ export class SpanTracker {
   private commonAttrs(): Record<string, string | number | boolean> {
     const sid = this.opts.sessionId();
     const attrs: Record<string, string | number | boolean> = {
-      [ATTR_AGENT_NAME]: GEN_AI_SYSTEM_PI,
-      [ATTR_SYSTEM]: GEN_AI_SYSTEM_PI,
+      ...agentAttrs(),
       [ATTR_PI_CWD]: this.opts.cwd,
     };
     if (sid) {
@@ -204,7 +210,7 @@ export class SpanTracker {
     this.interaction = { span, ctx };
     try {
       getInteractionsCounter().add(1, {
-        [ATTR_AGENT_NAME]: GEN_AI_SYSTEM_PI,
+        ...agentAttrs(),
       });
     } catch {
       // Metrics are best-effort — never block span lifecycle.
@@ -507,7 +513,7 @@ export class SpanTracker {
       this.llm.span.setAttribute(ATTR_ERROR_TYPE, errName);
       this.llm.span.setStatus({ code: SpanStatusCode.ERROR, message: errMsg });
       const attrs: LogAttributes = {
-        [ATTR_SYSTEM]: GEN_AI_SYSTEM_PI,
+        ...agentAttrs(),
         [ATTR_ERROR_TYPE]: errName,
         "exception.message": errMsg,
       };
@@ -534,8 +540,7 @@ export class SpanTracker {
     if (!this.llm) return;
     const elapsedSec = Number(process.hrtime.bigint() - this.llm.startNs) / 1e9;
     const baseAttrs: Record<string, string> = {
-      [ATTR_AGENT_NAME]: GEN_AI_SYSTEM_PI,
-      [ATTR_SYSTEM]: GEN_AI_SYSTEM_PI,
+      ...agentAttrs(),
       [ATTR_OPERATION_NAME]: "chat",
       [ATTR_PROVIDER_NAME]: this.llm.providerName ?? "unknown",
       [ATTR_REQUEST_MODEL]: this.llm.requestModel ?? "unknown",
@@ -580,7 +585,7 @@ export class SpanTracker {
       getToolCallsHistogram().record(this.llm.toolCallCount ?? 0, baseAttrs);
       if (typeof this.llm.costUsd === "number") {
         getCostCounter().add(this.llm.costUsd, {
-          [ATTR_AGENT_NAME]: GEN_AI_SYSTEM_PI,
+          ...agentAttrs(),
           [ATTR_PROVIDER_NAME]: this.llm.providerName ?? "unknown",
           [ATTR_RESPONSE_MODEL]: this.llm.responseModel ?? "unknown",
         });
@@ -631,7 +636,7 @@ export class SpanTracker {
       slot.span.setAttribute(ATTR_PI_TOOL_IS_ERROR, true);
       slot.span.setStatus({ code: SpanStatusCode.ERROR });
       const attrs: LogAttributes = {
-        [ATTR_SYSTEM]: GEN_AI_SYSTEM_PI,
+        ...agentAttrs(),
         [ATTR_TOOL_NAME]: slot.name,
         [ATTR_TOOL_CALL_ID]: toolCallId,
       };
@@ -655,8 +660,7 @@ export class SpanTracker {
     try {
       const elapsedSec = Number(process.hrtime.bigint() - slot.startNs) / 1e9;
       const metricAttrs: Record<string, string> = {
-        [ATTR_AGENT_NAME]: GEN_AI_SYSTEM_PI,
-        [ATTR_SYSTEM]: GEN_AI_SYSTEM_PI,
+        ...agentAttrs(),
         [ATTR_OPERATION_NAME]: "execute_tool",
         [ATTR_TOOL_NAME]: slot.name,
       };

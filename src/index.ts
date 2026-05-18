@@ -35,6 +35,7 @@ import type {
 import { trace } from "@opentelemetry/api";
 import { SeverityNumber } from "@opentelemetry/api-logs";
 import {
+  ATTR_AGENT_NAME,
   ATTR_FINISH_REASONS,
   ATTR_HTTP_STATUS_CODE,
   ATTR_PI_CWD,
@@ -71,6 +72,44 @@ function firstString(...values: unknown[]): string | undefined {
   return undefined;
 }
 
+function modelIdFromContext(
+  ctx: ExtensionContext | undefined,
+): string | undefined {
+  return firstString((ctx?.model as any)?.id);
+}
+
+function providerFromContext(
+  ctx: ExtensionContext | undefined,
+): string | undefined {
+  return firstString((ctx?.model as any)?.provider);
+}
+
+function modelFromPayload(payload: unknown): string | undefined {
+  if (!payload || typeof payload !== "object") return undefined;
+  const p = payload as Record<string, any>;
+  return firstString(p.model, p.modelId, p.modelName);
+}
+
+function providerFromPayload(
+  event: unknown,
+  payload: unknown,
+): string | undefined {
+  const e = event as Record<string, any> | undefined;
+  const p =
+    payload && typeof payload === "object"
+      ? (payload as Record<string, any>)
+      : undefined;
+  return firstString(
+    e?.provider,
+    e?.providerName,
+    e?.modelProvider,
+    p?.provider,
+    p?.providerName,
+    p?.modelProvider,
+    p?.provider?.name,
+  );
+}
+
 export default function (pi: ExtensionAPI): void {
   registerOtelCommand(pi, () => ctx0?.cwd);
 
@@ -101,6 +140,7 @@ export default function (pi: ExtensionAPI): void {
   let tracker: SpanTracker | null = null;
   let sessionIdRef: string | undefined;
   let sessionStartLogged = false;
+  let currentModelRef: ExtensionContext["model"] | undefined;
 
   const notify = (
     msg: string,
@@ -138,6 +178,7 @@ export default function (pi: ExtensionAPI): void {
         body: `pi session ${sessionIdRef ?? "(ephemeral)"} started`,
         attributes: {
           [ATTR_SYSTEM]: GEN_AI_SYSTEM_PI,
+          [ATTR_AGENT_NAME]: GEN_AI_SYSTEM_PI,
           [ATTR_PI_CWD]: cfg.cwd,
           "service.name": cfg.serviceName,
           ...(sessionIdRef ? { [ATTR_PI_SESSION_ID]: sessionIdRef } : {}),
@@ -148,6 +189,7 @@ export default function (pi: ExtensionAPI): void {
 
   pi.on("session_start", async (_event, ctx) => {
     ctx0 = ctx;
+    currentModelRef = ctx.model;
     const cfg = resolveConfig(ctx.cwd);
     if (!cfg.enabled) {
       tracker = null;
@@ -181,8 +223,16 @@ export default function (pi: ExtensionAPI): void {
       eventName,
       severity: "error",
       body,
-      attributes: attrs,
+      attributes: {
+        ...attrs,
+        [ATTR_AGENT_NAME]: GEN_AI_SYSTEM_PI,
+        [ATTR_SYSTEM]: GEN_AI_SYSTEM_PI,
+      },
     });
+
+  pi.on("model_select", async (event) => {
+    currentModelRef = event.model;
+  });
 
   pi.on("before_agent_start", async (event, _ctx) => {
     tracker?.startInteraction(event?.prompt);
@@ -213,24 +263,22 @@ export default function (pi: ExtensionAPI): void {
     }
   });
 
-  pi.on("before_provider_request", async (event, _ctx) => {
-    // event.payload shape varies per provider; try to lift a model field.
-    const e = event as any;
-    const payload = (event as any)?.payload;
+  pi.on("before_provider_request", async (event, ctx) => {
+    currentModelRef = ctx.model ?? currentModelRef;
+    // event.payload shape varies per provider; try to lift the actual request
+    // model from payload, but take provider identity from Pi's current model.
+    const payload = event.payload;
     const model =
-      payload?.model ?? payload?.modelId ?? payload?.modelName ?? undefined;
-    const provider = firstString(
-      e?.provider,
-      e?.providerName,
-      e?.modelProvider,
-      payload?.provider,
-      payload?.providerName,
-      payload?.modelProvider,
-      payload?.provider?.name,
-    );
-    tracker?.startLlmRequest(typeof model === "string" ? model : undefined);
+      modelFromPayload(payload) ??
+      modelIdFromContext(ctx) ??
+      firstString((currentModelRef as any)?.id);
+    const provider =
+      providerFromContext(ctx) ??
+      firstString((currentModelRef as any)?.provider) ??
+      providerFromPayload(event, payload);
+    tracker?.startLlmRequest(model);
     const attrs: Record<string, string> = {};
-    if (typeof model === "string") attrs[ATTR_REQUEST_MODEL] = model;
+    if (model) attrs[ATTR_REQUEST_MODEL] = model;
     if (provider) attrs[ATTR_PROVIDER_NAME] = provider;
     if (Object.keys(attrs).length > 0) {
       tracker?.setLlmAttrs(attrs);
@@ -309,6 +357,7 @@ export default function (pi: ExtensionAPI): void {
       body: `pi session ${sessionIdRef ?? "(ephemeral)"} ended`,
       attributes: {
         [ATTR_SYSTEM]: GEN_AI_SYSTEM_PI,
+        [ATTR_AGENT_NAME]: GEN_AI_SYSTEM_PI,
         ...(sessionIdRef ? { [ATTR_PI_SESSION_ID]: sessionIdRef } : {}),
       },
     });
