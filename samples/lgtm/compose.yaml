@@ -6,6 +6,10 @@ services:
       - "4318:4318"   # OTLP HTTP
       - "3000:3000"   # Grafana UI  →  http://localhost:3000
     volumes:
+      - lgtm-data:/data
       - ./dashboard.json:/dashboards/pi-otel.json:ro
       - ./dashboard-usage.json:/dashboards/pi-otel-usage.json:ro
       - ./grafana-dashboards.yaml:/otel-lgtm/grafana/conf/provisioning/dashboards/grafana-dashboards.yaml:ro
+
+volumes:
+  lgtm-data:
