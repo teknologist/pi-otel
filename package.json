@@ -1,6 +1,6 @@
 {
   "name": "pi-otel",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "OpenTelemetry traces for pi-coding-agent — per-prompt span tree (interaction → llm_request, tool.<name>) exported via OTLP. Aspire-dashboard ready.",
   "type": "module",
   "keywords": [
@@ -31,12 +31,13 @@
   },
   "files": [
     "dist",
+    "src",
     "LICENSE",
     "README.md"
   ],
   "pi": {
     "extensions": [
-      "./dist/index.js"
+      "./src/index.ts"
     ],
     "image": "https://raw.githubusercontent.com/nikiforovall/pi-otel/master/assets/pi-otel-poster.png",
     "video": "https://raw.githubusercontent.com/NikiforovAll/pi-otel/master/assets/demo.mp4"
