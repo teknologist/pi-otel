@@ -7,7 +7,7 @@
  * itself.
  */
 
-import type { DiagLogger } from "@opentelemetry/api";
+import type { Context, DiagLogger } from "@opentelemetry/api";
 import {
   type LogAttributes,
   type Logger,
@@ -47,6 +47,7 @@ function emitLogRecord(
   severity: SeverityNumber,
   body: string,
   attributes: LogAttributes,
+  context?: Context,
 ): void {
   try {
     log.emit({
@@ -54,6 +55,7 @@ function emitLogRecord(
       severityText: SeverityNumber[severity],
       body,
       attributes,
+      context,
     });
   } catch {
     // best-effort
@@ -65,13 +67,20 @@ export function emitLifecycleLog(
   severity: SeverityNumber,
   body: string,
   attrs: LogAttributes = {},
+  context?: Context,
 ): void {
-  emitLogRecord(getLogger(), severity, body, {
-    "event.name": eventName,
-    ...attrs,
-    [ATTR_AGENT_NAME]: GEN_AI_SYSTEM_PI,
-    [ATTR_SYSTEM]: GEN_AI_SYSTEM_PI,
-  });
+  emitLogRecord(
+    getLogger(),
+    severity,
+    body,
+    {
+      "event.name": eventName,
+      ...attrs,
+      [ATTR_AGENT_NAME]: GEN_AI_SYSTEM_PI,
+      [ATTR_SYSTEM]: GEN_AI_SYSTEM_PI,
+    },
+    context,
+  );
 }
 
 function stringifyArg(a: unknown): string {

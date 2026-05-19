@@ -208,6 +208,13 @@ export class SpanTracker {
     });
     const ctx = trace.setSpan(otelContext.active(), span);
     this.interaction = { span, ctx };
+    emitLifecycleLog(
+      "pi.interaction.start",
+      SeverityNumber.INFO,
+      "pi interaction started",
+      attrs,
+      ctx,
+    );
     try {
       getInteractionsCounter().add(1, {
         ...agentAttrs(),
@@ -222,13 +229,25 @@ export class SpanTracker {
     const { span } = this.interaction;
     span.setAttribute(ATTR_PI_TURN_COUNT, this.turnCount);
     span.setAttribute(ATTR_PI_TOOL_COUNT, this.toolCount);
+    const logAttrs = this.commonAttrs();
+    logAttrs[ATTR_PI_TURN_COUNT] = this.turnCount;
+    logAttrs[ATTR_PI_TOOL_COUNT] = this.toolCount;
     if (error) {
-      span.setAttribute(ATTR_ERROR_TYPE, (error as Error)?.name ?? "Error");
+      const errName = (error as Error)?.name ?? "Error";
+      span.setAttribute(ATTR_ERROR_TYPE, errName);
+      logAttrs[ATTR_ERROR_TYPE] = errName;
       span.setStatus({
         code: SpanStatusCode.ERROR,
         message: String((error as Error)?.message ?? error),
       });
     }
+    emitLifecycleLog(
+      error ? "pi.interaction.error" : "pi.interaction.end",
+      error ? SeverityNumber.ERROR : SeverityNumber.INFO,
+      error ? "pi interaction failed" : "pi interaction ended",
+      logAttrs,
+      this.interaction.ctx,
+    );
     // Close stragglers defensively.
     if (this.llm) {
       this.llm.span.end();
@@ -528,6 +547,7 @@ export class SpanTracker {
         SeverityNumber.ERROR,
         `LLM request failed: ${errMsg}`,
         attrs,
+        this.llm.ctx,
       );
     }
     this.recordLlmMetrics(error);
@@ -648,6 +668,7 @@ export class SpanTracker {
         SeverityNumber.ERROR,
         `tool ${slot.name} failed`,
         attrs,
+        slot.ctx,
       );
     } else {
       slot.span.setAttribute(ATTR_PI_TOOL_IS_ERROR, false);

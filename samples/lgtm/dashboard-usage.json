@@ -702,8 +702,8 @@
         "overrides": [
           {
             "matcher": {
-              "id": "byName",
-              "options": "conversation_id"
+              "id": "byRegexp",
+              "options": "^\\d{4}-\\d{2}-\\d{2}T.*_[0-9a-f-]{36}$"
             },
             "properties": [
               {
@@ -711,7 +711,7 @@
                 "value": [
                   {
                     "title": "Open conversation in Tempo",
-                    "url": "/explore?orgId=1&left={\"datasource\":\"${tempo_ds}\",\"queries\":[{\"refId\":\"A\",\"queryType\":\"traceql\",\"query\":\"{ span.gen_ai.conversation.id = \\\"${__data.fields.conversation_id}\\\" }\"}],\"range\":{\"from\":\"${__from}\",\"to\":\"${__to}\"}}"
+                    "url": "/explore?orgId=1&left={\"datasource\":\"${tempo_ds}\",\"queries\":[{\"refId\":\"A\",\"queryType\":\"traceql\",\"query\":\"{ span.gen_ai.conversation.id = \\\"${__field.name}\\\" }\"}],\"range\":{\"from\":\"${__from}\",\"to\":\"${__to}\"}}"
                   }
                 ]
               }
@@ -719,28 +719,13 @@
           }
         ]
       },
-      "transformations": [
-        {
-          "id": "organize",
-          "options": {
-            "excludeByName": {},
-            "indexByName": {
-              "conversation_id": 0,
-              "Value": 1,
-              "Time": 2
-            },
-            "renameByName": {
-              "span.gen_ai.conversation.id": "conversation_id",
-              "Value": "input_tokens"
-            }
-          }
-        }
-      ],
+      "transformations": [],
       "options": {
         "showHeader": true,
         "cellHeight": "sm"
       },
-      "description": "Tempo TraceQL metrics fallback for grafana/otel-lgtm: input-token usage by conversation. Use the linked conversation id to inspect full trace details."
+      "description": "Tempo TraceQL metrics fallback for grafana/otel-lgtm: input-token usage by conversation. The panel is scoped to the last 2 hours because Tempo metrics queries are capped below the dashboard default range; click any token cell under a conversation-id column to inspect full trace details.",
+      "timeFrom": "2h"
     }
   ],
   "refresh": "10s",

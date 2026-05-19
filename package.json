@@ -1,6 +1,6 @@
 {
   "name": "pi-otel",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "OpenTelemetry traces for pi-coding-agent — per-prompt span tree (interaction → llm_request, tool.<name>) exported via OTLP. Aspire-dashboard ready.",
   "type": "module",
   "keywords": [
