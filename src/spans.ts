@@ -282,20 +282,37 @@ export class SpanTracker {
     const ctx = trace.setSpan(this.interaction.ctx, span);
     this.turn = { span, ctx, index: idx };
     this.turnCount += 1;
+    emitLifecycleLog(
+      "pi.turn.start",
+      SeverityNumber.INFO,
+      `pi turn ${idx} started`,
+      attrs,
+      ctx,
+    );
   }
 
   endTurn(error?: unknown): void {
     if (!this.turn) return;
+    const logAttrs = this.commonAttrs();
+    logAttrs[ATTR_PI_TURN_INDEX] = this.turn.index;
     if (error) {
-      this.turn.span.setAttribute(
-        ATTR_ERROR_TYPE,
-        (error as Error)?.name ?? "Error",
-      );
+      const errName = (error as Error)?.name ?? "Error";
+      this.turn.span.setAttribute(ATTR_ERROR_TYPE, errName);
+      logAttrs[ATTR_ERROR_TYPE] = errName;
       this.turn.span.setStatus({
         code: SpanStatusCode.ERROR,
         message: String((error as Error)?.message ?? error),
       });
     }
+    emitLifecycleLog(
+      error ? "pi.turn.error" : "pi.turn.end",
+      error ? SeverityNumber.ERROR : SeverityNumber.INFO,
+      error
+        ? `pi turn ${this.turn.index} failed`
+        : `pi turn ${this.turn.index} ended`,
+      logAttrs,
+      this.turn.ctx,
+    );
     this.turn.span.end();
     this.turn = null;
   }
@@ -323,6 +340,13 @@ export class SpanTracker {
       startNs: process.hrtime.bigint(),
       requestModel: model,
     };
+    emitLifecycleLog(
+      "pi.llm_request.start",
+      SeverityNumber.INFO,
+      "LLM request started",
+      attrs,
+      ctx,
+    );
     this.currentInputMessages = [];
     this.flushPendingMessages();
   }
@@ -550,6 +574,25 @@ export class SpanTracker {
         this.llm.ctx,
       );
     }
+    const endAttrs: LogAttributes = {
+      ...agentAttrs(),
+      [ATTR_OPERATION_NAME]: "chat",
+    };
+    if (this.llm.requestModel) {
+      endAttrs[ATTR_REQUEST_MODEL] = this.llm.requestModel;
+    }
+    if (this.llm.responseModel) {
+      endAttrs[ATTR_RESPONSE_MODEL] = this.llm.responseModel;
+    }
+    if (!error) {
+      emitLifecycleLog(
+        "pi.llm_request.end",
+        SeverityNumber.INFO,
+        "LLM request ended",
+        endAttrs,
+        this.llm.ctx,
+      );
+    }
     this.recordLlmMetrics(error);
     this.llm.span.end();
     this.llm = null;
@@ -644,6 +687,13 @@ export class SpanTracker {
       startNs: process.hrtime.bigint(),
     });
     this.toolCount += 1;
+    emitLifecycleLog(
+      "pi.tool.start",
+      SeverityNumber.INFO,
+      `tool ${toolName} started`,
+      attrs,
+      ctx,
+    );
   }
 
   endTool(
@@ -689,6 +739,19 @@ export class SpanTracker {
       getDurationHistogram().record(elapsedSec, metricAttrs);
     } catch {
       // Metrics are best-effort — never block span lifecycle.
+    }
+    if (!args.isError) {
+      emitLifecycleLog(
+        "pi.tool.end",
+        SeverityNumber.INFO,
+        `tool ${slot.name} ended`,
+        {
+          ...agentAttrs(),
+          [ATTR_TOOL_NAME]: slot.name,
+          [ATTR_TOOL_CALL_ID]: toolCallId,
+        },
+        slot.ctx,
+      );
     }
     slot.span.end();
     this.tools.delete(toolCallId);

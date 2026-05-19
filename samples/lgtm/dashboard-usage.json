@@ -722,7 +722,13 @@
       "transformations": [],
       "options": {
         "showHeader": true,
-        "cellHeight": "sm"
+        "cellHeight": "sm",
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "time"
+          }
+        ]
       },
       "description": "Tempo TraceQL metrics fallback for grafana/otel-lgtm: input-token usage by conversation. The panel is scoped to the last 2 hours because Tempo metrics queries are capped below the dashboard default range; click any token cell under a conversation-id column to inspect full trace details.",
       "timeFrom": "2h"
