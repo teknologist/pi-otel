@@ -313,7 +313,7 @@
         "uid": "$prom_ds"
       },
       "gridPos": {
-        "h": 8,
+        "h": 5,
         "w": 12,
         "x": 0,
         "y": 4
@@ -334,7 +334,11 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "short"
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 20
+          }
         },
         "overrides": []
       },
@@ -359,7 +363,7 @@
         "uid": "$prom_ds"
       },
       "gridPos": {
-        "h": 8,
+        "h": 5,
         "w": 12,
         "x": 12,
         "y": 4
@@ -404,10 +408,10 @@
         "uid": "$prom_ds"
       },
       "gridPos": {
-        "h": 8,
+        "h": 5,
         "w": 12,
         "x": 0,
-        "y": 12
+        "y": 9
       },
       "targets": [
         {
@@ -416,16 +420,20 @@
             "uid": "$prom_ds"
           },
           "editorMode": "code",
-          "expr": "sum(increase(gen_ai_client_token_usage_sum{gen_ai_agent_name=~\"$agent\", gen_ai_provider_name=~\"$provider\", gen_ai_response_model=~\"$model\"}[$__rate_interval])) by (gen_ai_response_model)",
+          "expr": "sum by (model_name) (label_replace(increase(gen_ai_client_token_usage_sum{gen_ai_agent_name=~\"$agent\", gen_ai_provider_name=~\"$provider\", gen_ai_response_model=~\"$model\", gen_ai_response_model=~\".*[?&](model|modelId|modelName)=.*\"}[$__rate_interval]), \"model_name\", \"$3\", \"gen_ai_response_model\", \".*[?&](model|modelId|modelName)=(claude-)?([^&]+).*\") or label_replace(increase(gen_ai_client_token_usage_sum{gen_ai_agent_name=~\"$agent\", gen_ai_provider_name=~\"$provider\", gen_ai_response_model=~\"$model\", gen_ai_response_model!~\".*[?&](model|modelId|modelName)=.*\"}[$__rate_interval]), \"model_name\", \"$3\", \"gen_ai_response_model\", \"^(.*/)?(claude-)?([^/?&]+)([?&].*)?$\"))",
           "instant": false,
           "range": true,
           "refId": "A",
-          "legendFormat": "{{gen_ai_response_model}}"
+          "legendFormat": "{{model_name}}"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "short"
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
         },
         "overrides": []
       },
@@ -443,17 +451,17 @@
     },
     {
       "id": 10,
-      "type": "stat",
+      "type": "bargauge",
       "title": "Tokens by model",
       "datasource": {
         "type": "prometheus",
         "uid": "$prom_ds"
       },
       "gridPos": {
-        "h": 8,
+        "h": 5,
         "w": 12,
         "x": 12,
-        "y": 12
+        "y": 9
       },
       "targets": [
         {
@@ -462,10 +470,11 @@
             "uid": "$prom_ds"
           },
           "editorMode": "code",
-          "expr": "sum(increase(gen_ai_client_token_usage_sum{gen_ai_agent_name=~\"$agent\", gen_ai_provider_name=~\"$provider\", gen_ai_response_model=~\"$model\"}[$__range])) by (gen_ai_response_model)",
-          "instant": false,
-          "range": true,
-          "refId": "A"
+          "expr": "sort_desc(sum by (model_name) (label_replace(increase(gen_ai_client_token_usage_sum{gen_ai_agent_name=~\"$agent\", gen_ai_provider_name=~\"$provider\", gen_ai_response_model=~\"$model\", gen_ai_response_model=~\".*[?&](model|modelId|modelName)=.*\"}[$__range]), \"model_name\", \"$3\", \"gen_ai_response_model\", \".*[?&](model|modelId|modelName)=(claude-)?([^&]+).*\") or label_replace(increase(gen_ai_client_token_usage_sum{gen_ai_agent_name=~\"$agent\", gen_ai_provider_name=~\"$provider\", gen_ai_response_model=~\"$model\", gen_ai_response_model!~\".*[?&](model|modelId|modelName)=.*\"}[$__range]), \"model_name\", \"$3\", \"gen_ai_response_model\", \"^(.*/)?(claude-)?([^/?&]+)([?&].*)?$\")))",
+          "instant": true,
+          "range": false,
+          "refId": "A",
+          "legendFormat": "{{model_name}}"
         }
       ],
       "fieldConfig": {
@@ -476,16 +485,14 @@
         "overrides": []
       },
       "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
         "reduceOptions": {
           "values": false,
           "calcs": ["lastNotNull"],
           "fields": ""
         },
-        "orientation": "auto",
-        "textMode": "auto",
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto"
+        "showUnfilled": true
       }
     },
     {
@@ -497,10 +504,10 @@
         "uid": "$prom_ds"
       },
       "gridPos": {
-        "h": 8,
+        "h": 5,
         "w": 12,
         "x": 0,
-        "y": 20
+        "y": 14
       },
       "targets": [
         {
@@ -509,16 +516,20 @@
             "uid": "$prom_ds"
           },
           "editorMode": "code",
-          "expr": "sum(increase(pi_cost_usd_total{gen_ai_agent_name=~\"$agent\", gen_ai_provider_name=~\"$provider\", gen_ai_response_model=~\"$model\"}[$__rate_interval])) by (gen_ai_response_model)",
+          "expr": "sum by (model_name) (label_replace(increase(pi_cost_usd_total{gen_ai_agent_name=~\"$agent\", gen_ai_provider_name=~\"$provider\", gen_ai_response_model=~\"$model\", gen_ai_response_model=~\".*[?&](model|modelId|modelName)=.*\"}[$__rate_interval]), \"model_name\", \"$3\", \"gen_ai_response_model\", \".*[?&](model|modelId|modelName)=(claude-)?([^&]+).*\") or label_replace(increase(pi_cost_usd_total{gen_ai_agent_name=~\"$agent\", gen_ai_provider_name=~\"$provider\", gen_ai_response_model=~\"$model\", gen_ai_response_model!~\".*[?&](model|modelId|modelName)=.*\"}[$__rate_interval]), \"model_name\", \"$3\", \"gen_ai_response_model\", \"^(.*/)?(claude-)?([^/?&]+)([?&].*)?$\"))",
           "instant": false,
           "range": true,
           "refId": "A",
-          "legendFormat": "{{gen_ai_response_model}}"
+          "legendFormat": "{{model_name}}"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "currencyUSD"
+          "unit": "currencyUSD",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
         },
         "overrides": []
       },
@@ -536,17 +547,17 @@
     },
     {
       "id": 12,
-      "type": "stat",
+      "type": "bargauge",
       "title": "Cost by model",
       "datasource": {
         "type": "prometheus",
         "uid": "$prom_ds"
       },
       "gridPos": {
-        "h": 8,
+        "h": 5,
         "w": 12,
         "x": 12,
-        "y": 20
+        "y": 14
       },
       "targets": [
         {
@@ -555,10 +566,11 @@
             "uid": "$prom_ds"
           },
           "editorMode": "code",
-          "expr": "sum(increase(pi_cost_usd_total{gen_ai_agent_name=~\"$agent\", gen_ai_provider_name=~\"$provider\", gen_ai_response_model=~\"$model\"}[$__range])) by (gen_ai_response_model)",
-          "instant": false,
-          "range": true,
-          "refId": "A"
+          "expr": "sort_desc(sum by (model_name) (label_replace(increase(pi_cost_usd_total{gen_ai_agent_name=~\"$agent\", gen_ai_provider_name=~\"$provider\", gen_ai_response_model=~\"$model\", gen_ai_response_model=~\".*[?&](model|modelId|modelName)=.*\"}[$__range]), \"model_name\", \"$3\", \"gen_ai_response_model\", \".*[?&](model|modelId|modelName)=(claude-)?([^&]+).*\") or label_replace(increase(pi_cost_usd_total{gen_ai_agent_name=~\"$agent\", gen_ai_provider_name=~\"$provider\", gen_ai_response_model=~\"$model\", gen_ai_response_model!~\".*[?&](model|modelId|modelName)=.*\"}[$__range]), \"model_name\", \"$3\", \"gen_ai_response_model\", \"^(.*/)?(claude-)?([^/?&]+)([?&].*)?$\")))",
+          "instant": true,
+          "range": false,
+          "refId": "A",
+          "legendFormat": "{{model_name}}"
         }
       ],
       "fieldConfig": {
@@ -569,16 +581,14 @@
         "overrides": []
       },
       "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
         "reduceOptions": {
           "values": false,
           "calcs": ["lastNotNull"],
           "fields": ""
         },
-        "orientation": "auto",
-        "textMode": "auto",
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto"
+        "showUnfilled": true
       }
     },
     {
@@ -590,10 +600,10 @@
         "uid": "$prom_ds"
       },
       "gridPos": {
-        "h": 8,
+        "h": 6,
         "w": 12,
         "x": 0,
-        "y": 28
+        "y": 19
       },
       "targets": [
         {
@@ -611,7 +621,11 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "short"
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
         },
         "overrides": []
       },
@@ -636,10 +650,10 @@
         "uid": "$prom_ds"
       },
       "gridPos": {
-        "h": 8,
+        "h": 6,
         "w": 12,
         "x": 12,
-        "y": 28
+        "y": 19
       },
       "targets": [
         {
@@ -648,9 +662,9 @@
             "uid": "$prom_ds"
           },
           "editorMode": "code",
-          "expr": "sum(increase(gen_ai_client_operation_duration_seconds_count{gen_ai_agent_name=~\"$agent\", gen_ai_operation_name=\"execute_tool\"}[$__range])) by (gen_ai_tool_name)",
-          "instant": false,
-          "range": true,
+          "expr": "sort_desc(sum(increase(gen_ai_client_operation_duration_seconds_count{gen_ai_agent_name=~\"$agent\", gen_ai_operation_name=\"execute_tool\"}[$__range])) by (gen_ai_tool_name))",
+          "instant": true,
+          "range": false,
           "refId": "A",
           "legendFormat": "{{gen_ai_tool_name}}"
         }
@@ -684,7 +698,7 @@
         "h": 10,
         "w": 24,
         "x": 0,
-        "y": 36
+        "y": 25
       },
       "targets": [
         {
@@ -748,7 +762,7 @@
           "value": "prometheus"
         },
         "label": "Prometheus",
-        "hide": 0
+        "hide": 2
       },
       {
         "name": "tempo_ds",
@@ -759,7 +773,7 @@
           "value": "tempo"
         },
         "label": "Tempo",
-        "hide": 0
+        "hide": 2
       },
       {
         "name": "agent",
