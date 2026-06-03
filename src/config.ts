@@ -121,9 +121,14 @@ function normalizeCapture(v: unknown): ContentCapture {
 
 export function resolveConfig(cwd: string): OtelConfig {
   const projectSettings = tryReadJson(join(cwd, ".pi", "settings.json"));
-  const globalSettings = tryReadJson(
-    join(homedir(), ".pi", "agent", "settings.json"),
-  );
+  // Agent (global) settings live in the agent dir. pi lets a host override that dir via
+  // PI_CODING_AGENT_DIR (e.g. a vendored profile), defaulting to ~/.pi/agent when unset — so honor
+  // the override, otherwise a custom profile's `otel.*` block is silently ignored. `||` (not `??`)
+  // so an empty-string env (a set-but-blank Docker/k8s value) still falls back to ~/.pi/agent
+  // rather than collapsing to a relative `settings.json` path.
+  const agentDir =
+    process.env.PI_CODING_AGENT_DIR || join(homedir(), ".pi", "agent");
+  const globalSettings = tryReadJson(join(agentDir, "settings.json"));
   const merged: SettingsShape["otel"] = {
     ...(globalSettings?.otel ?? {}),
     ...(projectSettings?.otel ?? {}),
