@@ -94,22 +94,25 @@ File: `samples/lgtm/dashboard-usage.json`, provisioned alongside the existing `d
 
 | Name | Type | Query / Source | Notes |
 | --- | --- | --- | --- |
-| `$agent` | Query (Prom) | `label_values(gen_ai_client_token_usage_count, gen_ai_agent_name)` | Multi-select with All available; default selection `pi`; pi-otel emits `pi`, other clients may emit other values |
-| `$provider` | Query (Prom) | `label_values(gen_ai_client_token_usage_count{gen_ai_agent_name=~"$agent"}, gen_ai_provider_name)` | Multi-select; default All; model provider, not Pi runtime |
-| `$model` | Query (Prom) | `label_values(gen_ai_client_token_usage_count{gen_ai_agent_name=~"$agent", gen_ai_provider_name=~"$provider"}, gen_ai_response_model)` | Multi-select; default All; primary reliable v1 filter |
 | `$tempo_ds` | Datasource (Tempo) | constant | Used for data links |
 | `$prom_ds` | Datasource (Prometheus) | constant | Default for all panels |
+| `$service` | Query (Prom) | `label_values(gen_ai_client_token_usage_count, service_name)` | First filter in the cascade; multi-select with All available; default All (`.*`); maps to OTel resource `service.name` / Prometheus label `service_name` |
+| `$agent` | Query (Prom) | `label_values(gen_ai_client_token_usage_count{service_name=~"$service"}, gen_ai_agent_name)` | Cascades from `$service`; multi-select with All available; default selection `pi`; pi-otel emits `pi`, other clients may emit other values |
+| `$provider` | Query (Prom) | `label_values(gen_ai_client_token_usage_count{service_name=~"$service", gen_ai_agent_name=~"$agent"}, gen_ai_provider_name)` | Cascades from `$service` and `$agent`; multi-select; default All; model provider, not Pi runtime |
+| `$model` | Query (Prom) | `label_values(gen_ai_client_token_usage_count{service_name=~"$service", gen_ai_agent_name=~"$agent", gen_ai_provider_name=~"$provider"}, gen_ai_response_model)` | Cascades from `$service`, `$agent`, and `$provider`; multi-select; default All; primary reliable v1 filter |
+
+All Prometheus-backed dashboard panels must include `service_name=~"$service"` in each metric selector, alongside the existing agent/provider/model matchers. The Tempo-backed highest-token conversations panel must include `resource.service.name =~ "$service"`. With `$service` left at All, the dashboard returns the same cross-service totals as before the service filter was added.
 
 ### 4.2 Stat row — "Tokens & Cost" (gridPos y=0, h=4)
 
 | Panel | PromQL |
 | --- | --- |
-| **Total Tokens** | `sum(increase(gen_ai_client_token_usage_sum{gen_ai_agent_name=~"$agent", gen_ai_provider_name=~"$provider", gen_ai_response_model=~"$model"}[$__range]))` |
+| **Total Tokens** | `sum(increase(gen_ai_client_token_usage_sum{service_name=~"$service", gen_ai_agent_name=~"$agent", gen_ai_provider_name=~"$provider", gen_ai_response_model=~"$model"}[$__range]))` |
 | **Input Tokens** | same with `gen_ai_token_type="input"` |
 | **Output Tokens** | same with `gen_ai_token_type="output"` |
 | **Cache Hit Rate** | `sum(increase(gen_ai_client_token_usage_sum{gen_ai_token_type="cache_read", …}[$__range])) / clamp_min(sum(increase(gen_ai_client_token_usage_sum{gen_ai_token_type=~"input\|cache_read", …}[$__range])), 1)` |
-| **Estimated Cost** | `sum(increase(pi_cost_usd_total{gen_ai_agent_name=~"$agent", gen_ai_provider_name=~"$provider", gen_ai_response_model=~"$model"}[$__range]))` — unit USD |
-| **Avg Cost / Interaction** | `sum(increase(pi_cost_usd_total{gen_ai_agent_name=~"$agent"}[$__range])) / clamp_min(sum(increase(pi_interactions_total{gen_ai_agent_name=~"$agent"}[$__range])), 1)` — scoped by `$agent`, intentionally not filtered by `$provider` or `$model` |
+| **Estimated Cost** | `sum(increase(pi_cost_usd_total{service_name=~"$service", gen_ai_agent_name=~"$agent", gen_ai_provider_name=~"$provider", gen_ai_response_model=~"$model"}[$__range]))` — unit USD |
+| **Avg Cost / Interaction** | `sum(increase(pi_cost_usd_total{service_name=~"$service", gen_ai_agent_name=~"$agent"}[$__range])) / clamp_min(sum(increase(pi_interactions_total{service_name=~"$service", gen_ai_agent_name=~"$agent"}[$__range])), 1)` — scoped by `$service` and `$agent`, intentionally not filtered by `$provider` or `$model` |
 
 The "↑+xxxx%" delta badge from Sigil is achieved with stat-panel `reduceOptions.calcs = ["lastNotNull"]` plus a secondary query of `…offset $__range` for the comparison baseline, surfaced via a `Delta` panel transform.
 
@@ -126,13 +129,13 @@ Agent breakdown panels and the `$agent` filter use `gen_ai.agent.name`; for this
 
 Cost is metric-backed in v1 through the pi-owned `pi.cost.usd` counter.
 
-- **Cost over time by model** — `timeseries`, `sum(increase(pi_cost_usd_total{gen_ai_agent_name=~"$agent", gen_ai_provider_name=~"$provider", gen_ai_response_model=~"$model"}[$__rate_interval])) by (gen_ai_response_model)`, unit USD.
-- **Cost by model** — `stat`, `sum(increase(pi_cost_usd_total{gen_ai_agent_name=~"$agent", gen_ai_provider_name=~"$provider", gen_ai_response_model=~"$model"}[$__range])) by (gen_ai_response_model)`, unit USD.
+- **Cost over time by model** — `timeseries`, `sum(increase(pi_cost_usd_total{service_name=~"$service", gen_ai_agent_name=~"$agent", gen_ai_provider_name=~"$provider", gen_ai_response_model=~"$model"}[$__rate_interval])) by (gen_ai_response_model)`, unit USD.
+- **Cost by model** — `stat`, `sum(increase(pi_cost_usd_total{service_name=~"$service", gen_ai_agent_name=~"$agent", gen_ai_provider_name=~"$provider", gen_ai_response_model=~"$model"}[$__range])) by (gen_ai_response_model)`, unit USD.
 
 ### 4.5 Tool calls row
 
-- **Tool calls over time** — `timeseries`, `sum(increase(gen_ai_client_operation_duration_count{gen_ai_agent_name=~"$agent", gen_ai_operation_name="execute_tool"}[$__rate_interval])) by (gen_ai_tool_name)`.
-- **Tool calls by tool** — `bargauge`, `sum(increase(gen_ai_client_operation_duration_count{gen_ai_agent_name=~"$agent", gen_ai_operation_name="execute_tool"}[$__range])) by (gen_ai_tool_name)`.
+- **Tool calls over time** — `timeseries`, `sum(increase(gen_ai_client_operation_duration_count{service_name=~"$service", gen_ai_agent_name=~"$agent", gen_ai_operation_name="execute_tool"}[$__rate_interval])) by (gen_ai_tool_name)`.
+- **Tool calls by tool** — `bargauge`, `sum(increase(gen_ai_client_operation_duration_count{service_name=~"$service", gen_ai_agent_name=~"$agent", gen_ai_operation_name="execute_tool"}[$__range])) by (gen_ai_tool_name)`.
 - **Tool call drilldown** — no unscoped all-tools Explore link in v1; use the conversation table drilldown first, then inspect `pi.tool.*` spans within the selected conversation trace.
 
 ### 4.6 Highest token usage conversations table
@@ -142,7 +145,7 @@ Cost is metric-backed in v1 through the pi-owned `pi.cost.usd` counter.
 **Query (TraceQL metrics):**
 
 ```traceql
-{ name = "pi.llm_request" }
+{ name = "pi.llm_request" && resource.service.name =~ "$service" }
   | by(span.gen_ai.conversation.id)
   | aggregate(
       total_tokens = sum_over_time(span.gen_ai.usage.input_tokens + span.gen_ai.usage.output_tokens),
@@ -157,7 +160,7 @@ The table starts from `pi.llm_request` because those spans carry token/model dat
 
 Grafana renders the preferred multi-aggregate query as a table; column order set via the **Organize fields** transform to: `conversation_id | total_tokens | llm_calls | models | errors | last_seen`. When using the shipped `grafana/otel-lgtm` fallback below, the table is intentionally narrower: `conversation_id | input_tokens | Time`, with the conversation-id drilldown providing the full trace timeline.
 
-> Note on TraceQL syntax: the exact aggregation grammar is still evolving in Tempo 2.x. The shipped `grafana/otel-lgtm` image exposes TraceQL metrics through `/api/metrics/query_range` and does not support the multi-aggregate table query above. Fall back to separate metrics queries such as `sum_over_time(span.gen_ai.usage.input_tokens) by (span.gen_ai.conversation.id)` and `count_over_time() by (span.gen_ai.conversation.id)`, joined via the **Merge** transform on `span.gen_ai.conversation.id`. The preferred `errors` value counts any `{status=error}` span in the **Conversation**, not only failed `pi.llm_request` spans; implement that as a separate all-span error query and merge it when the single-query form cannot express it.
+> Note on TraceQL syntax: the exact aggregation grammar is still evolving in Tempo 2.x. The shipped `grafana/otel-lgtm` image exposes TraceQL metrics through `/api/metrics/query_range` and does not support the multi-aggregate table query above. Fall back to separate metrics queries such as `{ name = "pi.llm_request" && resource.service.name =~ "$service" } | sum_over_time(span.gen_ai.usage.input_tokens) by (span.gen_ai.conversation.id)` and `{ name = "pi.llm_request" && resource.service.name =~ "$service" } | count_over_time() by (span.gen_ai.conversation.id)`, joined via the **Merge** transform on `span.gen_ai.conversation.id`. The preferred `errors` value counts any `{status=error}` span in the **Conversation**, not only failed `pi.llm_request` spans; implement that as a separate all-span error query and merge it when the single-query form cannot express it.
 
 **Data link** (per-row, opens Tempo Explore filtered by conversation id):
 
@@ -236,4 +239,5 @@ None. The dashboard works with the existing `signals.metrics: true` + `signals.t
 - The provisioned dashboard defaults `$provider` and `$model` to All.
 - V1 dashboard also includes `$provider` using `gen_ai.provider.name`; provider means model provider, not Pi runtime.
 - `$model` remains the primary model-level filter, scoped by `$agent` and `$provider`.
+- The usage dashboard includes `$service` as the first cascade filter using Prometheus `service_name`, defaulting to All so existing cross-service totals remain unchanged until a service is selected.
 - Add the usage dashboard alongside the existing sample dashboard; do not replace the current dashboard.

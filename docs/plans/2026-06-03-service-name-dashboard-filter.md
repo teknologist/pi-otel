@@ -63,8 +63,8 @@ dashboard queries before wiring a variable to it.
 
 ## Task 1: Add the `$service` template variable
 
-- [ ] Implemented
-- [ ] Verified
+- [x] Implemented
+- [x] Verified
 - [ ] Reviewed
 
 ### Acceptance criteria
@@ -87,8 +87,8 @@ dashboard queries before wiring a variable to it.
 
 ## Task 2: Cascade the existing variables off `$service`
 
-- [ ] Implemented
-- [ ] Verified
+- [x] Implemented
+- [x] Verified
 - [ ] Reviewed
 
 ### Acceptance criteria
@@ -115,8 +115,8 @@ reflect the selected service(s).
 
 ## Task 3: Thread `service_name=~"$service"` into every PromQL panel
 
-- [ ] Implemented
-- [ ] Verified
+- [x] Implemented
+- [x] Verified
 - [ ] Reviewed
 
 ### Acceptance criteria
@@ -148,8 +148,8 @@ reflect the selected service(s).
 
 ## Task 4: Filter the Tempo "Highest token usage conversations" panel
 
-- [ ] Implemented
-- [ ] Verified
+- [x] Implemented
+- [x] Verified
 - [ ] Reviewed
 
 ### Acceptance criteria
@@ -176,8 +176,8 @@ regress.
 
 ## Task 5: Update spec and `verify-dashboard.mjs`
 
-- [ ] Implemented
-- [ ] Verified
+- [x] Implemented
+- [x] Verified
 - [ ] Reviewed
 
 ### Acceptance criteria
@@ -203,8 +203,8 @@ Prove the filter against real traffic from more than one service.
 
 ## Task 6: Validate with two distinct `service_name`s
 
-- [ ] Implemented
-- [ ] Verified
+- [x] Implemented
+- [x] Verified
 - [ ] Reviewed
 
 ### Acceptance criteria

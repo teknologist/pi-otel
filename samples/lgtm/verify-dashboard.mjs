@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { readFileSync } from "node:fs";
 import { trace } from "@opentelemetry/api";
 import {
   ATTR_INPUT_TOKENS,
@@ -18,6 +19,99 @@ const serviceName = `pi-otel-dashboard-e2e-${Date.now()}`;
 const provider = "dashboard-e2e-provider";
 const model = "dashboard-e2e-model";
 const started = Math.floor(Date.now() / 1000) - 60;
+const dashboard = JSON.parse(
+  readFileSync(new URL("./dashboard-usage.json", import.meta.url), "utf8"),
+);
+
+function validateDashboardDefinition() {
+  const failures = [];
+  const variables = dashboard.templating?.list ?? [];
+  const variableByName = new Map(
+    variables.map((variable) => [variable.name, variable]),
+  );
+  const service = variableByName.get("service");
+  const agent = variableByName.get("agent");
+  const provider = variableByName.get("provider");
+  const modelVariable = variableByName.get("model");
+  const serviceIndex = variables.findIndex(
+    (variable) => variable.name === "service",
+  );
+  const agentIndex = variables.findIndex(
+    (variable) => variable.name === "agent",
+  );
+
+  if (!service) failures.push("Missing service dashboard variable");
+  if (!agent) failures.push("Missing agent dashboard variable");
+  if (serviceIndex < 0 || agentIndex < 0 || serviceIndex > agentIndex)
+    failures.push("Service variable must be ordered before agent");
+  if (service?.type !== "query")
+    failures.push("Service variable must be a query variable");
+  if (service?.label !== "Service")
+    failures.push("Service variable label must be Service");
+  if (!service?.multi || !service?.includeAll || service?.allValue !== ".*")
+    failures.push("Service variable must be multi-select with All=.*");
+  if (service?.refresh !== 1 || service?.sort !== 1)
+    failures.push("Service variable refresh/sort settings are incorrect");
+  if (
+    service?.datasource?.type !== "prometheus" ||
+    service?.datasource?.uid !== "$prom_ds"
+  )
+    failures.push(
+      "Service variable must use the Prometheus datasource variable",
+    );
+  if (
+    service?.query?.query !==
+    "label_values(gen_ai_client_token_usage_count, service_name)"
+  )
+    failures.push("Service variable query is incorrect");
+  if (
+    service?.current?.text !== "All" ||
+    service?.current?.value !== "$__all" ||
+    service?.current?.selected !== true
+  )
+    failures.push("Service variable must default to All");
+
+  if (
+    agent?.query?.query !==
+    'label_values(gen_ai_client_token_usage_count{service_name=~"$service"}, gen_ai_agent_name)'
+  )
+    failures.push("Agent variable must cascade from service");
+  if (
+    provider?.query?.query !==
+    'label_values(gen_ai_client_token_usage_count{service_name=~"$service", gen_ai_agent_name=~"$agent"}, gen_ai_provider_name)'
+  )
+    failures.push("Provider variable must cascade from service and agent");
+  if (
+    modelVariable?.query?.query !==
+    'label_values(gen_ai_client_token_usage_count{service_name=~"$service", gen_ai_agent_name=~"$agent", gen_ai_provider_name=~"$provider"}, gen_ai_response_model)'
+  )
+    failures.push(
+      "Model variable must cascade from service, agent, and provider",
+    );
+
+  for (const panel of dashboard.panels ?? []) {
+    for (const target of panel.targets ?? []) {
+      if (
+        panel.id >= 1 &&
+        panel.id <= 14 &&
+        target.datasource?.type === "prometheus"
+      ) {
+        if (!target.expr?.includes('service_name=~"$service"'))
+          failures.push(
+            `Panel #${panel.id} target ${target.refId ?? "?"} is missing service matcher`,
+          );
+      }
+      if (panel.id === 15 && target.queryType === "traceql") {
+        if (!target.query?.includes("resource.service.name"))
+          failures.push(
+            "Panel #15 TraceQL must filter by resource.service.name",
+          );
+      }
+    }
+  }
+
+  if (failures.length) throw new Error(failures.join("; "));
+}
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -105,6 +199,7 @@ function emitConversation(
 }
 
 async function main() {
+  validateDashboardDefinition();
   await getJson("/api/health");
 
   initSdk({
