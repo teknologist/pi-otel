@@ -4,12 +4,30 @@ services:
     ports:
       - "4317:4317"   # OTLP gRPC
       - "4318:4318"   # OTLP HTTP
-      - "3000:3000"   # Grafana UI  →  http://localhost:3000
+      - "3000:3000"   # Grafana UI  →  http://localhost:3000 (direct-access fallback)
     volumes:
       - lgtm-data:/data
       - ./dashboard.json:/dashboards/pi-otel.json:ro
       - ./dashboard-usage.json:/dashboards/pi-otel-usage.json:ro
       - ./grafana-dashboards.yaml:/otel-lgtm/grafana/conf/provisioning/dashboards/grafana-dashboards.yaml:ro
+    # Exposed via the shared glod-edge Traefik stack: TLS-terminated Grafana at
+    # https://lgtm.glod.pytheascapital.net (wildcard cert), routed to the Grafana UI on :3000.
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.lgtm.rule=Host(`lgtm.glod.pytheascapital.net`)"
+      - "traefik.http.routers.lgtm.entrypoints=websecure"
+      - "traefik.http.routers.lgtm.tls.certresolver=cf"
+      - "traefik.http.routers.lgtm.tls.domains[0].main=*.glod.pytheascapital.net"
+      - "traefik.http.routers.lgtm.middlewares=vpn-only@file"
+      - "traefik.http.services.lgtm.loadbalancer.server.port=3000"
+    networks:
+      - default
+      - edge
+
+networks:
+  # Shared reverse-proxy network owned by the standalone glod-edge/ Traefik stack.
+  edge:
+    external: true
 
 volumes:
   lgtm-data:

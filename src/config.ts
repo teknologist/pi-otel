@@ -113,6 +113,13 @@ function normalizeLogLevel(s: string | undefined): DiagLogLevel | undefined {
   }
 }
 
+function nonEmptyEnv(name: string): string | undefined {
+  const value = process.env[name];
+  if (value === undefined) return undefined;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : undefined;
+}
+
 function normalizeCapture(v: unknown): ContentCapture {
   if (v === true || v === "full") return "full";
   if (v === "no_tool_content") return "no_tool_content";
@@ -141,12 +148,12 @@ export function resolveConfig(cwd: string): OtelConfig {
   const enabled = envDisabled ? false : merged?.enabled !== false;
 
   const endpoint =
-    process.env.OTEL_EXPORTER_OTLP_ENDPOINT ??
+    nonEmptyEnv("OTEL_EXPORTER_OTLP_ENDPOINT") ??
     merged?.endpoint ??
     "http://127.0.0.1:4317";
 
   const protocol = normalizeProtocol(
-    process.env.OTEL_EXPORTER_OTLP_PROTOCOL ?? merged?.protocol,
+    nonEmptyEnv("OTEL_EXPORTER_OTLP_PROTOCOL") ?? merged?.protocol,
   );
 
   const headers = {
@@ -155,10 +162,10 @@ export function resolveConfig(cwd: string): OtelConfig {
   };
 
   const serviceName =
-    process.env.OTEL_SERVICE_NAME ?? merged?.serviceName ?? "pi";
+    nonEmptyEnv("OTEL_SERVICE_NAME") ?? merged?.serviceName ?? "pi";
 
   const captureContent = normalizeCapture(
-    process.env.PI_OTEL_CAPTURE_CONTENT ?? merged?.captureContent,
+    nonEmptyEnv("PI_OTEL_CAPTURE_CONTENT") ?? merged?.captureContent,
   );
 
   const sampleRatio =
@@ -183,7 +190,7 @@ export function resolveConfig(cwd: string): OtelConfig {
     },
     resourceAttributes: parseKvList(process.env.OTEL_RESOURCE_ATTRIBUTES, true),
     logLevel:
-      normalizeLogLevel(process.env.OTEL_LOG_LEVEL) ??
+      normalizeLogLevel(nonEmptyEnv("OTEL_LOG_LEVEL")) ??
       normalizeLogLevel(merged?.logLevel) ??
       DiagLogLevel.DEBUG,
     cwd,

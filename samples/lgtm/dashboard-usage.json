@@ -32,7 +32,7 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 4,
+        "w": 3,
         "x": 0,
         "y": 0
       },
@@ -59,7 +59,9 @@
       "options": {
         "reduceOptions": {
           "values": false,
-          "calcs": ["lastNotNull"],
+          "calcs": [
+            "lastNotNull"
+          ],
           "fields": ""
         },
         "orientation": "auto",
@@ -79,8 +81,8 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 4,
-        "x": 4,
+        "w": 3,
+        "x": 3,
         "y": 0
       },
       "targets": [
@@ -106,7 +108,9 @@
       "options": {
         "reduceOptions": {
           "values": false,
-          "calcs": ["lastNotNull"],
+          "calcs": [
+            "lastNotNull"
+          ],
           "fields": ""
         },
         "orientation": "auto",
@@ -126,8 +130,8 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 4,
-        "x": 8,
+        "w": 3,
+        "x": 6,
         "y": 0
       },
       "targets": [
@@ -153,7 +157,9 @@
       "options": {
         "reduceOptions": {
           "values": false,
-          "calcs": ["lastNotNull"],
+          "calcs": [
+            "lastNotNull"
+          ],
           "fields": ""
         },
         "orientation": "auto",
@@ -173,8 +179,8 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 4,
-        "x": 12,
+        "w": 3,
+        "x": 9,
         "y": 0
       },
       "targets": [
@@ -200,7 +206,9 @@
       "options": {
         "reduceOptions": {
           "values": false,
-          "calcs": ["lastNotNull"],
+          "calcs": [
+            "lastNotNull"
+          ],
           "fields": ""
         },
         "orientation": "auto",
@@ -221,7 +229,7 @@
       "gridPos": {
         "h": 4,
         "w": 4,
-        "x": 16,
+        "x": 12,
         "y": 0
       },
       "targets": [
@@ -247,7 +255,9 @@
       "options": {
         "reduceOptions": {
           "values": false,
-          "calcs": ["lastNotNull"],
+          "calcs": [
+            "lastNotNull"
+          ],
           "fields": ""
         },
         "orientation": "auto",
@@ -268,7 +278,7 @@
       "gridPos": {
         "h": 4,
         "w": 4,
-        "x": 20,
+        "x": 16,
         "y": 0
       },
       "targets": [
@@ -294,7 +304,9 @@
       "options": {
         "reduceOptions": {
           "values": false,
-          "calcs": ["lastNotNull"],
+          "calcs": [
+            "lastNotNull"
+          ],
           "fields": ""
         },
         "orientation": "auto",
@@ -302,6 +314,85 @@
         "colorMode": "value",
         "graphMode": "area",
         "justifyMode": "auto"
+      }
+    },
+    {
+      "id": 16,
+      "type": "bargauge",
+      "title": "Cost by service",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "$prom_ds"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 20,
+        "y": 0
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$prom_ds"
+          },
+          "editorMode": "code",
+          "expr": "sort_desc(sum by (service_name) (increase(pi_cost_usd_total{service_name=~\"$service\", gen_ai_agent_name=~\"$agent\", gen_ai_provider_name=~\"$provider\", gen_ai_response_model=~\"$model\"}[$__range])))",
+          "instant": true,
+          "range": false,
+          "refId": "A",
+          "legendFormat": "{{service_name}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 2
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "pi"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "auto-review-agent"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "showUnfilled": true
       }
     },
     {
@@ -393,7 +484,9 @@
         "orientation": "horizontal",
         "reduceOptions": {
           "values": false,
-          "calcs": ["lastNotNull"],
+          "calcs": [
+            "lastNotNull"
+          ],
           "fields": ""
         },
         "showUnfilled": true
@@ -489,7 +582,9 @@
         "orientation": "horizontal",
         "reduceOptions": {
           "values": false,
-          "calcs": ["lastNotNull"],
+          "calcs": [
+            "lastNotNull"
+          ],
           "fields": ""
         },
         "showUnfilled": true
@@ -585,7 +680,9 @@
         "orientation": "horizontal",
         "reduceOptions": {
           "values": false,
-          "calcs": ["lastNotNull"],
+          "calcs": [
+            "lastNotNull"
+          ],
           "fields": ""
         },
         "showUnfilled": true
@@ -680,7 +777,9 @@
         "orientation": "horizontal",
         "reduceOptions": {
           "values": false,
-          "calcs": ["lastNotNull"],
+          "calcs": [
+            "lastNotNull"
+          ],
           "fields": ""
         },
         "showUnfilled": true
@@ -750,7 +849,11 @@
   ],
   "refresh": "10s",
   "schemaVersion": 39,
-  "tags": ["pi-otel", "gen-ai", "usage"],
+  "tags": [
+    "pi-otel",
+    "gen-ai",
+    "usage"
+  ],
   "templating": {
     "list": [
       {
